@@ -193,6 +193,7 @@ enum outputChannel {
 #define CMD_CSS BYTE1_C + BYTE2_S + BYTE3_S
 // }}}
 
+//Se PUEDEU ELIMINAR ??
 // {{{
 #define INS_END 0           //!< Exit the program
 #define INS_SET 83          //!< Set the value of the port
