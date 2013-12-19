@@ -8,7 +8,7 @@ This project's main objective is to keep updated the support for Arduino boards,
 keep the compatibility with the last versions of ODControl and OpenDomo OS, 
 and include the new features.
 
-In the <a title="OpenDomo" href="https://github.com/opalenzuela/dominoOSE/issues"> Issues </ a> page,
+In the <a title="OpenDomo" href="https://github.com/opalenzuela/dominoOSE/issues"> Issues </a> page,
 you can find all the objectives, milestones and roamap of this project.
 
 
@@ -22,5 +22,5 @@ El objetivo principal de este proyecto es mantener actualizado el soporte para
 la placa Arduino, mantener la compatibilidad con las últimas versiones de 
 ODControl y OpenDomo OS, e incluir las nuevas características.
 
-En la página <a title="OpenDomo" href="https://github.com/opalenzuela/dominoOSE/issues"> Issues </ a>,
+En la página <a title="OpenDomo" href="https://github.com/opalenzuela/dominoOSE/issues"> Issues </a>,
 puede encontrar todos los objetivos, hitos y toda la hoja de ruta de este proyecto.
