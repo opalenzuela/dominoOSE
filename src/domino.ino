@@ -812,6 +812,7 @@ int saveConfig()
 //	unsigned char b;
 
 	for(x=0;x<TOTALPORTS;x++) {
+	
 		dir = int (EMPORTSOFFSET + x * EMPORTSLOT);
 		eeprom_set_byte(dir + 5, ports[x].type);
 
@@ -900,8 +901,9 @@ int configPort(char id, char *cfg, char *name)
 	debug_write(ports[id].type);
 
 	if (name != NULL) {
-		for (i = 0; i < 5; i++)
-			eeprom_set_byte(EMPORTSLOT * id + i, name[i]);
+		for (i = 0; i < 5; i++){
+			if (ISVALIDCHAR(name[i]))eeprom_set_byte(EMPORTSLOT * id + i, name[i]);
+      else eeprom_set_byte(EMPORTSLOT * id + i, 'x');
 	}
 
 	return true;
