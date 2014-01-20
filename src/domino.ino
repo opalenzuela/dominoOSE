@@ -335,6 +335,7 @@ prog_char strfmt_error[] PROGMEM = "E:board error ";
 
 #define ON "ON"
 #define OFF "OFF"
+PROGMEM  char type_link[]  = { 'd', 'i','p', 'f', 0x00};
 
 // {{{
 prog_char str_upsec[] PROGMEM = "upsec";
@@ -368,7 +369,7 @@ byte h2d(char a, char b) __attribute__((noinline));
 void print_error(byte out, int code) __attribute__((noinline));
 void print_cmdok(byte out) __attribute__((noinline));
 int setPortValue(byte i, int value) __attribute__((noinline));
-int processInstruction(const char *cmd) __attribute__((noinline));
+boolean processInstruction(const char *cmd) __attribute__((noinline));
 void writef(byte out, const char* fmt, ...);
 //char *flstr(prog_char *flash_str) __attribute__((noinline));
 char * itoan(int val, char *result, byte len);
@@ -389,7 +390,7 @@ EthernetUDP Udp;
 #endif
 
 char instruction[BUFFERSIZE];	///< Command received
-byte inspos = 0;		///< Command byte position
+//byte inspos = 0;		///< Command byte position
 bool echo = false;		///< Flag that defines if the local echo is activated
 bool debug = false;		///< Flag that defines if the board operates in debug mode
 byte alarmport = 0;		///< Alarm port configured (0 if none)
@@ -422,6 +423,24 @@ int owrite(byte out, const char *str)
 	}
 }
 // }}}
+
+/*
+  
+*/
+boolean validTypeLink (char type ){
+  char t;
+  byte k=0;
+  do{
+    t=pgm_read_byte(type_link + k);
+    if (type==t) return true;
+    else k++;
+  }while (t != 0x00);
+  
+  return false;
+}
+
+
+	
 
 
 void print_error(byte out, int code)
@@ -812,7 +831,6 @@ int saveConfig()
 //	unsigned char b;
 
 	for(x=0;x<TOTALPORTS;x++) {
-	
 		dir = int (EMPORTSOFFSET + x * EMPORTSLOT);
 		eeprom_set_byte(dir + 5, ports[x].type);
 
@@ -839,8 +857,10 @@ int saveConfig()
  \param name New port name (optional)
  \return 0 if everything went right. Otherwise, -1
 */
-int configPort(char id, char *cfg, char *name)
+boolean configPort(char id, char *cfg, char *name)
 {
+        int offsetSlot;
+        offsetSlot=EMPORTSLOT * id;
 	if (id < 0)
 		return false;	// Ignoramos ID =-1 (puerto no encontrado)
 
@@ -895,15 +915,17 @@ int configPort(char id, char *cfg, char *name)
 			}
 			i++;
 		}
-	}
+                eeprom_set_byte(offsetSlot + 5, ports[id].type);
+        }
 	debug_write(id);
 	debug_write(cfg);
 	debug_write(ports[id].type);
-
-	if (name != NULL) {
-		for (i = 0; i < 5; i++){
-			if (ISVALIDCHAR(name[i]))eeprom_set_byte(EMPORTSLOT * id + i, name[i]);
-      else eeprom_set_byte(EMPORTSLOT * id + i, 'x');
+        if (name != NULL){
+           for (i = 0; i < 5; i++){
+             if (ISVALIDCHAR(name[i]))eeprom_set_byte(offsetSlot + i, name[i]);
+             else eeprom_set_byte(offsetSlot + i, 'x');
+           }
+			
 	}
 
 	return true;
@@ -991,7 +1013,7 @@ int loadDefaultConfig()
 }
 
 /// This function reads the command from the serial port
-bool readFromSerialPort(char *ins)
+boolean readFromSerialPort(char *ins)
 {
 	byte b;
 	byte i=0;
@@ -1206,16 +1228,23 @@ void listPorts()
 /** Links two ports
  \param port1 Trigger port (usually input)
  \param port2 Triggered port (usually output)
- \return the link slot if the operation succeeded, otherwise -1 or -2 (invalid ports)
+ \return the link slot if the operation succeeded, 
+         or -1 (invalid type port)
+         or -2 (all buffer link used)
+         or -3 (link already exists)       
 */
-byte addLink(byte port1, byte port2, char type)
+char addLink(byte port1, byte port2, char type)
 {
 	byte l;
-	if ((port1 == -1) || (port2 == -1))
-		return -2;
+        if ((port1 == -1) || (port2 == -1))return -1;
 
 	if ((ISINPUT(port1) && ISOUTPUT(port2)) || ISVIRTUAL(port1)) {
 		for (l=0;l<MAXLINKS;l++) {
+                        if ((links[l][0] == port1) && (links[l][1] == port2))	// the link already exists
+			{
+				return -2;
+
+			}
 			if ((links[l][0] == 0) && (links[l][1] == 0))	// If the slot is empty
 			{
 				links[l][0] = port1;
@@ -1223,13 +1252,10 @@ byte addLink(byte port1, byte port2, char type)
 				links[l][2] = type;
 				return l;
 			}
-			if ((links[l][0] == port1) && (links[l][1] == port2))	// the link already exists
-			{
-				return l;
-			}
+			
 		}
 	}
-	return false;
+	return -3;
 }
 
 /** Delete the link between two ports.
@@ -1481,18 +1507,19 @@ void printMap()
 
 /** Executes the specified command
  \param cmd The command string (max 20Bytes)
- \return 0 if the operation was successful, other if not
+ \return true if the operation was successful, other if not
 */
-int processInstruction(const char *cmd)
+boolean processInstruction(const char *cmd)
 {
 	int i;
 	byte j;
 //char buffer[10];
 	char arg1[6];		// First argument (if specified)
 	char arg2[6];		// Second argument (if specified)
-	int value = 0;
+	//int value = 0;
 	int code = 0;
-
+        int incident=-1;
+        char funcionout=0;
 	//! @todo Change "code" to zero if invalid char
 	code = (cmd[0] - 96) << 10;
 	code += (cmd[1] - 96) << 5;
@@ -1526,100 +1553,82 @@ int processInstruction(const char *cmd)
 
 	case CMD_LST:		/// - lst: List configured ports
 		listPorts();
-		return 0;
+		break;
 
 	case CMD_ECH:		/// - echo: (de)activates local echo
 		echo = ! echo;
-		return 0;
+		break;
 
 	case CMD_DEB:		/// - debug: (de)activates debug mode
 		debug = ! debug;
-		return 0;
+		break;
 
 	case CMD_DEF:		/// - default: load default configuration
 		loadDefaultConfig();
 		resetPorts();
-		Serial.println("D:Defaults restored");
-		//writef(output, flstr(strfmt_ncfdef), bname);
+		Serial.println("D:Defaults restored");		
 		return 0;
 
 	case CMD_LOA:		/// - load: load stored configuration
-		if (loadConfig()){
-			print_cmdok(output);
-//writef(output, flstrn(strfmt_cfloa,buffer,10), NOTICE, bname);
-		}else{
-			print_error(output,21);
-		}	//writef(output, flstr(strfmt_error2), ERROR, bname, 21);
-		return 0;
+		if (loadConfig())incident=0;
+		else incident=21;	
+		break;
 
-	case CMD_SAV:		/// - save: save configuration to EEPROM
-		if (saveConfig()) {
-			print_cmdok(output);
-			//writef(output, flstr(strfmt_cmdok2), NOTICE, bname);
-		} else {
-			print_error(output,22);
- 		}
-			//writef(output, flstr(strfmt_error2), ERROR, bname, 22);
-		return 0;
+	case CMD_SAV:		/// - save: save configuration to EEPROM		
+                if (saveConfig()) incident=0;
+		else incident=22; 	
+		break;
 
 	case CMD_CFG:		/// - cfg: configures the specified port
 		i = getPortId(arg1);
-		if (configPort(i, arg2, NULL)) 	print_cmdok(output);
-			//writef(output, flstr(strfmt_cmdok2), NOTICE, bname);
+		if (configPort(i, arg2, NULL)) 	incident=0;		
 		resetPorts();
-		return 0;
+		break;
 
 	case CMD_LBL:		/// - lbl: set an alias to a port
 		i = getPortId(arg1);
-		if (configPort(i, NULL, arg2))	print_cmdok(output);
-			//writef(output, flstr(strfmt_cmdok2), NOTICE, bname);
-		return 0;
+		if (configPort(i, NULL, arg2))	incident=0;		
+		break;
 
 	case CMD_RES:		/// - reset: clear the EEPROM
 		eeprom_reset();
-		print_cmdok(output);
-		//writef(output, flstr(strfmt_cmdok2), NOTICE, bname);
-		return 0;
+		incident=0;		
+		break;
 
 	case CMD_MAP:		/// - map: print the \ref EEPROM
 		printMap();
-		return 0;
+		break;
 
 	case CMD_PUT:		/// - put: changes a Byte in the \ref EEPROM
 		i = atoi(arg1);
 		j = atoi(arg2);
 		if (i > 0 && i < EMSEGMENTS * EMPORTSLOT && j >= 0 && j <= 255) {
 			eeprom_set_byte(i, j);
-			print_cmdok(output);
-			//writef(output, flstr(strfmt_cmdok2), NOTICE, bname);
-		} else
-			print_error(output,30);
-			//writef(output, flstr(strfmt_error2), ERROR, bname, 30);
-		return 0;
+			incident=0;			
+		} 
+                else incident=30;		
+		break;
 
 	case CMD_VER:		/// - ver: display the current version
 		printVersion();
-		return 0;
+		break;
 
 	case CMD_SNM:		/// - snm: set a new name for the board
 		saveBoardName(arg1);
-		print_cmdok(output);
-		//writef(output, flstr(strfmt_cmdok2), NOTICE, bname);
-		return 0;
+		incident=0;
+		break;
 
 	case CMD_GRP: 		/// - grp: group 2 ports into a virtualport
 		i = groupPorts(arg1,arg2);
-		if(i==true)
-			print_cmdok(output);
-		else
-			print_error(output,i);
-		return false;
+		if(i==true) incident=0;			
+		else incident=i;
+		break;
 
 	case CMD_SOP:		/// - sop: Set operation to grouped port
 		i = getPortId(arg1);
 		if (true==setOperation(getPortId(arg1),arg2))
-			print_cmdok(output);
-		return 0;
+			incident=0;
+		break;
 
 	case CMD_SET:		/// - set: set a value to an output port
 		i = getPortId(arg1);
@@ -1633,67 +1642,62 @@ int processInstruction(const char *cmd)
 #ifdef ENABLE_NETWORKING
 		sendODControlUpdate(i);
 #endif
-		print_cmdok(output);
-		return 0;
+		incident=0;
+		break;
 
 	case CMD_LNK:		/// - lnk: link two ports
-		i = getPortId(arg1);
-		j = getPortId(arg2);
-		lastlink = addLink(i, j, cmd[16]);
-		if (lastlink >= 0)
-			print_cmdok(output);
-		else
-			print_error(output,306);
-			//writef(output, flstr(strfmt_error2), ERROR, bname, 306);
-		return 0;
+		i = getPortId(arg1);            // Indice del puerto origen
+		j = getPortId(arg2);            // Indice del puerto destino
+               
+                if (validTypeLink(cmd[16])==true){
+                  funcionout=addLink(i, j, cmd[16]);
+                  if (funcionout>=0)incident=0;
+                  else if (funcionout==-2)incident=302;
+                  else if (funcionout==-3)incident=301;
+                }
+                else incident=306;	
+		break;
 
-	case CMD_UNL:		/// - unl: unlink two ports
+	case CMD_UNL:		/// - unl: unlink two portsValid
 		i = getPortId(arg1);
 		j = getPortId(arg2);
-		if (delLink(i, j) == 0) print_cmdok(output);
-		//	writef(output, flstr(strfmt_cmdok2), NOTICE, bname);
-		return 0;
+		if (delLink(i, j) == 0) incident=0;
+		break;
+		
 
 	case CMD_LLN:		/// - lln: list the current links
 		listLinks();
-		return 0;
+		break;
 
-/*
-	case CMD_LCF:		/// - lcf: configure the specified link
-		if (lastlink < MAXLINKS) {
-			debug_write(arg1);
-			debug_write(lastlink);
-			links[lastlink][2] = arg1[0];
-			return 0;
-		} else {
-			print_error(output,305);
-			//writef(output, flstr(strfmt_error2), ERROR, bname, 305);
-			return false;
-		}
-*/
-	case CMD_UPT:		/// - upt: print uptime
+        case CMD_UPT:		/// - upt: print uptime
 		printUptime();
-		return 0;
+		break;
 
 	case CMD_MEM:		/// - mem: print available memory
 		printMemory();
-		return 0;
+		break;
 
 	case CMD_ETH:		/// - eth: ethernet functions
 #ifdef ENABLE_NETWORKING
-		if (ethControl(cmd))
-			print_cmdok(output);
-		else
-			print_error(output,440);
-			//writef(output, flstr(strfmt_error2), ERROR, bname, 440);
+		if (ethControl(cmd))incident=0;			
+		else incident=440;
 #endif
-		return 0;
+		break;
 
 	default:
-		print_error(output,1);
-		//writef(output, flstr(strfmt_error2), ERROR, bname, 1);
-		return 1;
+		incident=1;	
+		break;
 	}
+        
+        if(incident>0){
+          print_error(output,incident);
+          return false;
+        }
+        if(incident==0)print_cmdok(output);
+        return true; 
+                 
+        
+          
 }
 
 // {{{
@@ -2063,7 +2067,7 @@ int readFromHTTPPort(char *instruction)
 		//client.println("</ul><div id=ftr></div></body></html>");
 	} else {
 		output = SERIALPORT; // Do not show any output
-		if (processInstruction(instruction)==0){
+		if (processInstruction(instruction)==true){
      			client.println("HTTP/1.1 307 Temporary redirect"); // HTTP Code: correct (redirect)
 			client.println("Location: /lst");
    		} else {
