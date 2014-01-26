@@ -232,19 +232,35 @@ enum outputChannel {
 
 #define DIGITALPORTS    14	//!< Number of digital ports
 #define ANALOGPORTS     6	//!< Number of analog ports
-#define VIRTUALPORTS    4	//!< Number of virtual ports
-#define MAXLINKS  	8	//!< Maximum number of links
+#define VIRTUALPORTS    30	//!< Number of virtual ports
+#define MAXLINKS  	30	//!< Maximum number of links
 	// EEPROM Memory distribution
-#define FUNCSPACE     100	//!< Total space for on-board functions
-#define EMPORTSOFFSET   0	//!< \ref EEPROM Bytes 000-399 Ports configuration
+/*#define FUNCSPACE     100	//!< Total space for on-board functions
+	//!< \ref EEPROM Bytes 000-399 Ports configuration
 #define EMVPORTOFFSET 400	//!< \ref EEPROM Bytes 400-499 Virtual ports
 #define EMLINKSOFFSET 500	//!< \ref EEPROM Bytes 500-699 Links
 #define EMNETCFOFFSET 800	//!< \ref EEPROM Bytes 800-820 Network: MAC(6) + IP(4)+GW(4)+MASK(4)
 #define EMBOARDOFFSET 850	//!< \ref EEPROM Bytes 850-899 Additional board information (name)
-#define EMFUNCSOFFSET 900	//!< \ref EEPROM Bytes 900-999 On-board functions
+#define EMFUNCSOFFSET 900	//!< \ref EEPROM Bytes 900-999 On-board functions*/
 #define EMSEGMENTS     50	//!< Number of segments in \ref EEPROM
+#define EMPORTSOFFSET   0
+#define EMPORTSLOT 13		//!< Reserved bytes for each port
 
-#define EMPORTSLOT 20		//!< Reserved bytes for each port
+#define EMAPORTSOFFSET (EMPORTSOFFSET +(DIGITALPORTS * EMPORTSLOT))    // =>  10x13 =130
+#define EMVPORTSOFFSET (EMAPORTSOFFSET + (ANALOGPORTS * EMPORTSLOT))  //=>130+(6X13)=208
+#define EMLINKSOFFSET  (EMVPORTSOFFSET + (VIRTUALPORTS * EMPORTSLOT))  //=>208+(30X13)=589
+#define EMLINKSLOT 	3
+#define EMNETCFOFFSET  (EMLINKSOFFSET + (VIRTUALPORTS * EMLINKSLOT))	//=>598+(30X3)=688
+#define	EMBOARDOFFSET (EMNETCFOFFSET+50)
+
+
+#define EMPOSTYPEPORT 5
+#define EMPOSVISIBILITY 6
+#define EMPOSTYPEVIRTUAl 7
+#define EMPOSPARAM1 8
+#define EMPOSPARAM2 10
+#define EMPOSPARAM3 12	
+
 #define DELAYCYCLE 100		//!< Delay in each cycle, in milliseconds
 #define BUFFERSIZE 50		//!< Maximum lenght for the command
 #define MAXCHANGES 6		//!< Maximum number of changes allowed per second
@@ -647,7 +663,7 @@ void triggerPortChange(byte port, byte ov, byte nv)
 	for (i = 0; i < MAXLINKS; i++) {
 		if (links[i][0] == port)	// Puerto enlazado
 		{
-			eeprom_get_str(pname, links[i][1]*EMPORTSLOT, 6);
+			//eeprom_get_str(pname, links[i][1]*EMPORTSLOT, 6);
 //			writef(output, flstr(strfmt_trgrd), NOTICE, bname, pname);
 			switch (links[i][2]) {
 			case 'd':	// Directo: si A=1, B=1. Si A=0, B=0. Si A=65%, B=65%
@@ -807,9 +823,9 @@ int loadConfig()
 	}
 
 	for (x = 0; x < MAXLINKS; x++) {
-		links[x][0] = eeprom_get_byte(EMLINKSOFFSET + x * 5);
-		links[x][1] = eeprom_get_byte(EMLINKSOFFSET + x * 5 + 1);
-		links[x][2] = eeprom_get_byte(EMLINKSOFFSET + x * 5 + 2);
+		links[x][0] = eeprom_get_byte(EMLINKSOFFSET + x * EMLINKSLOT);
+		links[x][1] = eeprom_get_byte(EMLINKSOFFSET + x * EMLINKSLOT + 1);
+		links[x][2] = eeprom_get_byte(EMLINKSOFFSET + x * EMLINKSLOT + 2);
 
 		if (links[x][0] > TOTALPORTS)
 			links[x][0] = 0;
@@ -841,11 +857,11 @@ int saveConfig()
 		}
 	}
 	for (x = 0; x < MAXLINKS; x++) {
-		eeprom_set_byte(EMLINKSOFFSET + x * 5 + 0, links[x][0]);
-		eeprom_set_byte(EMLINKSOFFSET + x * 5 + 1, links[x][1]);
-		eeprom_set_byte(EMLINKSOFFSET + x * 5 + 2, links[x][2]);
-		eeprom_set_byte(EMLINKSOFFSET + x * 5 + 3, '-');
-		eeprom_set_byte(EMLINKSOFFSET + x * 5 + 4, '-');
+		eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 0, links[x][0]);
+		eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 1, links[x][1]);
+		eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 2, links[x][2]);
+		//eeprom_set_byte(EMLINKSOFFSET + x * 5 + 3, '-');
+		//eeprom_set_byte(EMLINKSOFFSET + x * 5 + 4, '-');
 	}
 
 	return true;
@@ -1078,9 +1094,9 @@ void refreshPortStatus()
 	for(i=0;i<TOTALPORTS;i++) {
 		val = 0;
 		if (ISVIRTUAL(i)) { // Virtual ports: special case
-			param1 = eeprom_get_byte(EMPORTSOFFSET + i * EMPORTSLOT+ 16);
-			param2 = eeprom_get_byte(EMPORTSOFFSET + i * EMPORTSLOT+ 17);
-			param3 = eeprom_get_byte(EMPORTSOFFSET + i * EMPORTSLOT+ 18);
+			param1 = eeprom_get_byte(EMPORTSOFFSET + i * EMPOSPARAM1);
+			param2 = eeprom_get_byte(EMPORTSOFFSET + i * EMPOSPARAM2);
+			param3 = eeprom_get_byte(EMPORTSOFFSET + i * EMPOSPARAM3);
 			if (param3 == INS_INCREASE) {
 				ports[i].value = ports[param1].value + ports[param2].value;
  			}else if (param3 == INS_AND) {
@@ -1650,7 +1666,7 @@ boolean processInstruction(const char *cmd)
 		j = getPortId(arg2);            // Indice del puerto destino
                
                 if (validTypeLink(cmd[16])==true){
-                  funcionout=addLink(i, j, cmd[16]);
+                  funcionout=addLink(i, j, cmd[16]);                 
                   if (funcionout>=0)incident=0;
                   else if (funcionout==-2)incident=302;
                   else if (funcionout==-3)incident=301;
