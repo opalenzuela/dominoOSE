@@ -34,7 +34,7 @@
 */
 
 /// Current library version
-#define VERSION "1.1.3"
+#define VERSION "1.1.4"
 
 //define para habilitar la funcionalidad de red
 #define ENABLE_NETWORKING
