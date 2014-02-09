@@ -1,3 +1,4 @@
+
 /**
  \file domino.ino
  \brief Domino (OpenDomo for Arduino)
@@ -246,12 +247,12 @@ enum outputChannel {
 #define EMPORTSOFFSET   0
 #define EMPORTSLOT 13		//!< Reserved bytes for each port
 
-#define EMAPORTSOFFSET (EMPORTSOFFSET +(DIGITALPORTS * EMPORTSLOT))    // =>  10x13 =130
-#define EMVPORTSOFFSET (EMAPORTSOFFSET + (ANALOGPORTS * EMPORTSLOT))  //=>130+(6X13)=208
-#define EMLINKSOFFSET  (EMVPORTSOFFSET + (VIRTUALPORTS * EMPORTSLOT))  //=>208+(30X13)=589
+#define EMAPORTSOFFSET (EMPORTSOFFSET +(DIGITALPORTS * EMPORTSLOT))    // =>  14x13 =182
+#define EMVPORTSOFFSET (EMAPORTSOFFSET + (ANALOGPORTS * EMPORTSLOT))  //=> 182+(6X13)=260
+#define EMLINKSOFFSET  (EMVPORTSOFFSET + (VIRTUALPORTS * EMPORTSLOT))  //=>260+(30X13)=650
 #define EMLINKSLOT 	3
-#define EMNETCFOFFSET  (EMLINKSOFFSET + (VIRTUALPORTS * EMLINKSLOT))	//=>598+(30X3)=688
-#define	EMBOARDOFFSET (EMNETCFOFFSET+50)
+#define EMNETCFOFFSET  (EMLINKSOFFSET + (VIRTUALPORTS * EMLINKSLOT))  //=> 650+(30X3)=740
+#define	EMBOARDOFFSET (EMNETCFOFFSET+50)                              //=> 750+50=800
 
 
 #define EMPOSTYPEPORT 5
@@ -273,7 +274,7 @@ enum outputChannel {
 #define OFF      0		//!< Alias for OFF
 #define ON    HIGH		//!< Alias for ON
 
-
+#define TIMEPULSE 5
 ///! Event types
 enum eventType {
 	DEBUG = 68,
@@ -330,9 +331,11 @@ struct portStruct {
 	byte type;			///< Type of the port (a, d, A, D, v, ...)
 	byte value;			///< Last value of the port
 	byte changes;			///< Number of changes in the last second
+        byte counter;
 //	struct portRanges *range;	///< Ranges (only for analog ports)
 //	struct extendedData *extra;	///< Additional data for virtual ports
 } ports[TOTALPORTS];
+
 
 //! Board name
 char bname[6];
@@ -351,7 +354,7 @@ prog_char strfmt_error[] PROGMEM = "E:board error ";
 
 #define ON "ON"
 #define OFF "OFF"
-PROGMEM  char type_link[]  = { 'd', 'i','p', 'f', 0x00};
+PROGMEM  char type_link[]  = { 'd', 'i','p', 'c', 'r', 't','s','n','N','o','f','l', 0x00};
 
 // {{{
 prog_char str_upsec[] PROGMEM = "upsec";
@@ -618,7 +621,62 @@ byte h2d(char a, char b)
 
 // }}}
 
+/*Cambia el estado de las salidas con un tiempo activo.
+  El tipo de enlace al que pertenece determina la accion.
+  \
+  \Entrada: ID del puerto que ha llegado a cero.
+  \Salida: Vacio
 
+*/
+void timePortEnd(byte port)
+{
+      int i;
+      
+      for (i = 0; i < MAXLINKS; i++){
+        if (links[i][1] == port){
+          switch (links[i][2]){
+            case 'r':
+            case 't':
+            case 's':
+              setPortValue(links[i][1], LOW);            
+            break;
+            
+            case 'l':
+              
+                if(ports[(links[i][0])].counter<10) ports[(links[i][0])].counter+=10;
+              
+                switch (ports[(links[i][0])].counter){
+                      case 11:
+                          if ( ports[(links[i][1])].value < 245){
+                            setPortValue(links[i][1], ports[(links[i][1])].value+=10);
+                            ports[(links[i][1])].counter=TIMEPULSE;    // Recarga timer proximo incremento
+                          }
+                          else{
+                            ports[(links[i][1])].value =255;
+                          }
+                      
+                      break;
+                      case 12:
+                          setPortValue(links[i][1], ports[(links[i][1])].value=0);
+                      break;
+                      
+                      case 13:
+                          if (ports[(links[i][1])].value > 10){
+                            setPortValue(links[i][1], ports[(links[i][1])].value-=10);
+                            ports[(links[i][1])].counter=TIMEPULSE;
+                          }
+                          else{
+                            setPortValue(links[i][1], ports[(links[i][1])].value=0);                 
+                          }                       
+                      break;
+                      }
+                break;
+            
+            
+          }          
+        }        
+      }
+}
 
 /** This function triggers an event if a port value has changed.
  \param port Port number
@@ -627,91 +685,191 @@ byte h2d(char a, char b)
 */
 void triggerPortChange(byte port, byte ov, byte nv)
 {
-	//byte i;
-	char buffer[20];
-	char format[20];
+        char buffer[20];
+        char format[20];
         flstrn(strfmt_std_num,format,20);
-	char pname[6];
-	int i;
+        char pname[6];
+        int i;
+        // Variables y macros tipo de flanco Differtial UP or Differettial Down
+	byte dif=0;
+        #define DIFU  2
+        #define DIFD  1
+	#define ISDIFU  (dif==DIFU)
+	#define ISDIFD  (dif==DIFD)
+	#define CHANGED (!dif==0)          // Se usa por seguridad no es necesario.
+	
+	
+        
+        if (ov > nv) dif=DIFD;            // Solves differential change, Up or Down
+	else if (ov < nv) dif=DIFU;
 
-	if (ov == nv)
-		return;		// Value didn't change
-
+        if (dif == 0) return;             // Value didn't change return.
+        
+        
 	ports[port].changes++;
 	eeprom_get_str(pname, port*EMPORTSLOT, 6);
-
 	if (ISINPUT(port) && ISANALOG(port)) {
-  	//if (ports[port].type =='a') {
-    	//	Serial.print("D:");
-	//	Serial.print(pname);
-	//	Serial.print(ov,DEC);
-	//	Serial.print(" --> ");
-	//	Serial.println(nv,DEC);
-		// Si el valor supera el limite impuesto, y esta subiendo, disparar alarma
-		//i = port-DIGITALPORTS;
-
+	  //if (ports[port].type =='a') {
+	  //	Serial.print("D:");
+	  //	Serial.print(pname);
+	  //	Serial.print(ov,DEC);
+	  //	Serial.print(" --> ");
+	  //	Serial.println(nv,DEC);
+	  // Si el valor supera el limite impuesto, y esta subiendo, disparar alarma
+	  //i = port-DIGITALPORTS;}
 	}
-	if (ISINPUT(port) && ISDIGITAL(port)) {
-		// Si un puerto digital ha cambiado y tiene un temporizador asignado, le
-		// asignamos al contador el valor correspondiente.
-//      if (t_len[port]>0 && t_count[port]==0 && nv==HIGH) t_count[port] = t_len[port];
-		flstrn(strfmt_std,format,20);
-		if (output!=HTTP) writef(output,format,
-			NOTICE, bname,pname,flstrn(str_value,buffer,10), (nv==1)?ON:OFF);
-	}
+  
+        if (ISINPUT(port) && ISDIGITAL(port))
+        {
+      		// Si un puerto digital ha cambiado y tiene un temporizador asignado, le
+      		// asignamos al contador el valor correspondiente.
+      		//if (t_len[port]>0 && t_count[port]==0 && nv==HIGH) t_count[port] = t_len[port];
+      		flstrn(strfmt_std,format,20);
+      		if (output!=HTTP){
+      		writef(output,format,NOTICE, bname,pname,flstrn(str_value,buffer,10), (nv==1)?ON:OFF);
+      		}
+        }
+        
+        // Puertos enlazados
+        
+        for (i = 0; i < MAXLINKS; i++){
+          if (links[i][0] == port){
+                        
+            // Enlades directos puede ser analogicos o digitales.
+            // Directo: si A=1, B=1. Si A=0, B=0. Si A=65%, B=65%
+            if (links[i][2]=='d')setPortValue(links[i][1], nv);
+            
+            // Tratamiento en el caso de puerto destino digital.
+            else if (ISDIGITAL(links[i][1])){
+              switch (links[i][2]){
+                
+                // Inverso: si A=1, B=0. Si A=0, B=1.
 
-	for (i = 0; i < MAXLINKS; i++) {
-		if (links[i][0] == port)	// Puerto enlazado
-		{
-			//eeprom_get_str(pname, links[i][1]*EMPORTSLOT, 6);
-//			writef(output, flstr(strfmt_trgrd), NOTICE, bname, pname);
-			switch (links[i][2]) {
-			case 'd':	// Directo: si A=1, B=1. Si A=0, B=0. Si A=65%, B=65%
-				setPortValue(links[i][1], nv);
-				break;
-			case 'i':	// Inverso: si A=1, B=0. Si A=0, B=1. Si A=65%, B=35%
-				if (nv == LOW)
-					setPortValue(links[i][1], HIGH);
-				else if (nv == HIGH)
-					setPortValue(links[i][1], LOW);
-				/// @todo Activate inverted link for analog ports
-				//else
-				//      setPortValue(links[i][1],255-nv);
-				break;
-			case 'p':	// Pulso: 0->1 o 1->0 cuando el puerto pasa a HIGH
-				if (ISDIGITAL(port) && nv == HIGH) {
-					if (ports[links[i][1]].value == LOW)
-						setPortValue(links[i][1], HIGH);
-					else
-						setPortValue(links[i][1], LOW);
-				}
-				break;
-			case 'f':	// Fall: 0->1 o 1->0 cuando el puerto pasa a LOW
-				if (ISDIGITAL(port) && nv == LOW) {
-					if (ports[links[i][1]].value == LOW)
-						setPortValue(links[i][1], HIGH);
-					else
-						setPortValue(links[i][1], LOW);
-				}
-				break;
-			case 'W':
-			case 'w':
-				/// Nothing. Done before
-				break;
-			default:
-//				writef(output, flstr(strfmt_error),
-//				       ERROR, bname, pname, 304);
-				print_error(output,304);
-//				if (debug == 1)
-//					writef(output, "%c:%s %c",
-//					       DEBUG, (char *)"lnktype",
-//					       links[i][2]);
-				break;
-
-			}
-		}
-	}
+                case 'i':
+                  if (ISDIFD) setPortValue(links[i][1], HIGH);
+                  else if (ISDIFU) setPortValue(links[i][1], LOW);
+                  /// @todo Activate inverted link for analog ports
+                  //else
+                  //setPortValue(links[i][1],255-nv);
+                break;
+                
+                case 'p':
+                  if (ISDIFU){
+                    if (ports[links[i][1]].value == LOW)setPortValue(links[i][1], HIGH);
+                    else setPortValue(links[i][1], LOW);
+                  }
+                break;
+               
+                case 'c':
+                  if (CHANGED){
+                    if (ports[links[i][1]].value == LOW)setPortValue(links[i][1], HIGH);
+                    else setPortValue(links[i][1], LOW);
+                  }
+                break;
+                
+                case 'r':
+                  if (CHANGED && ports[(links[i][0])].counter==0){
+                    setPortValue(links[i][1], HIGH);
+                    ports[(links[i][1])].counter=TIMEPULSE;
+                  }
+                break;  
+                
+                case 't':
+                  if (ISDIFU && ports[(links[i][0])].counter==0){
+                    setPortValue(links[i][1], HIGH);
+                    ports[(links[i][1])].counter=TIMEPULSE;
+                  }
+                break;
+                
+                case 's':
+                  if (ISDIFD){
+                    setPortValue(links[i][1], HIGH);
+                    ports[(links[i][1])].counter=TIMEPULSE;
+                  }
+                  else if(ISDIFU){
+                    setPortValue(links[i][1], LOW);
+                    ports[(links[i][0])].counter=0;
+                  }
+                break;
+                
+                case 'o':
+                  if (CHANGED)setPortValue(links[i][1], HIGH);                  
+                break;
+                
+                case 'f':
+                  if (CHANGED)setPortValue(links[i][1], LOW);                  
+                break;      
+                
+                default:
+                  print_error(output,304);                 
+                break;
+              }
+              
+            }
+            // Los enlaces con puerto destino Analogicos tienen otro tratamiento.
+            else if(ISANALOG(links[i][1])){
+              switch (links[i][2]){  
+                       
+                case 'n':
+                  if (ISDIFD)
+                    setPortValue(links[i][1], ports[(links[i][1])].value+=1);               
+                break;
+                
+                case 'N':
+                  if (ISDIFU){
+                    setPortValue(links[i][1], ports[(links[i][1])].value+=1);
+                  }             
+                break;
+                
+                case 'l':                  
+                  //  Los pulsos son contados y se guardan en el registro counter perteneciente
+                  // al puerto de entrada.
+                  //
+                  // Los counter perteneciente a puertos de salida siempre son de tiempo y tratados por
+                  // la función timePortChange.
+                  //
+                  //  Despues de agotar el primer tiempo se suma 10 al counter entrada (contador de pulsos) 
+                  // el tratamiento del enlace lo realizara timePortChange hasta llegar a los limites o 
+                  // nuevo cambio en puerto de entrada.
+              
+               
+                  if (CHANGED && ports[(links[i][0])].counter<10 )
+                  {
+                   
+                    ports[(links[i][0])].counter+=1;
+                    
+                    if (ports[(links[i][0])].counter == 4 )
+                    {
+                      ports[(links[i][1])].counter=0;              // Fin 
+                      ports[(links[i][0])].counter=0; 
+                    }     
+                   
+                    else
+                    {
+                      ports[(links[i][1])].counter=TIMEPULSE*2;                 
+                    }                                   
+                  }
+                  else if (ISDIFU && ports[(links[i][0])].counter>10)
+                  {
+                    ports[(links[i][1])].counter=0;              // Fin 
+                    ports[(links[i][0])].counter=0;
+                  }
+                  
+                break;                                
+                  
+                 
+                default:
+                  print_error(output,304);
+                break;
+                }
+            }
+          }
+        }
 }
+
+        
+
+
 
 // {{{ setPortValue(): set port value
 /** Set a value for the specified port
@@ -1087,12 +1245,13 @@ void refreshPortStatus()
 {
 	byte i = 0;
 	byte k = 0;
-	int val;
+        int val;
 	char pname[6];
 	byte param1, param2, param3;
 
 	for(i=0;i<TOTALPORTS;i++) {
 		val = 0;
+               
 		if (ISVIRTUAL(i)) { // Virtual ports: special case
 			param1 = eeprom_get_byte(EMPORTSOFFSET + i * EMPOSPARAM1);
 			param2 = eeprom_get_byte(EMPORTSOFFSET + i * EMPOSPARAM2);
@@ -1106,14 +1265,26 @@ void refreshPortStatus()
  			}
 
 		} else if (ISOUTPUT(i)) {
-			if (ISDIGITAL(i))
-				val = digitalRead(i);
-			else
-				val = ports[i].value;
+  
+                         if(ports[i].counter!=0){                          
+                          if (ports[i].counter==1)timePortEnd(i);
+                          ports[i].counter-=1;
+                        }
+                        
+                        if (ISDIGITAL(i))
+                          val = digitalRead(i);
+                        else
+                          val = ports[i].value;
 			if (ports[i].value != val)
 				triggerPortChange(i, ports[i].value, val);
 
+                                
+}
+				
+
+
 		} else if (ISINPUT(i)) {
+                       
 			if (ISDIGITAL(i)) {
 				// varias lecturas para minimizar problemas de ruido
 				val = HIGH;
@@ -1125,13 +1296,11 @@ void refreshPortStatus()
 					delay(10);
 				}
 
-				if (ports[i].value == LOW && val == HIGH) {
-					triggerPortChange(i, ports[i].value,
-							  HIGH);
+				if ((ports[i].value == LOW && val == HIGH)) {
+					triggerPortChange(i, ports[i].value, HIGH);
 					ports[i].value = HIGH;
-				} else if (ports[i].value == HIGH && val == LOW) {
-					triggerPortChange(i, ports[i].value,
-							  LOW);
+				} else if ((ports[i].value == HIGH && val == LOW )) {
+					triggerPortChange(i, ports[i].value, LOW);
 					ports[i].value = LOW;
 				}
 			}
@@ -1620,9 +1789,9 @@ boolean processInstruction(const char *cmd)
 		j = atoi(arg2);
 		if (i > 0 && i < EMSEGMENTS * EMPORTSLOT && j >= 0 && j <= 255) {
 			eeprom_set_byte(i, j);
-			incident=0;			
-		} 
-                else incident=30;		
+			incident=0;
+		}
+		else incident=30;		
 		break;
 
 	case CMD_VER:		/// - ver: display the current version
@@ -1823,8 +1992,9 @@ void setup()
 */
 void loop()
 {
- 	char instruction[20];
-	// Aparte de comprobar los comandos recibidos, miramos si
+        char instruction[20];
+        
+        // Aparte de comprobar los comandos recibidos, miramos si
 	// hay algun cambio de estado en los puertos.
 	refreshPortStatus();
 
@@ -2183,6 +2353,8 @@ void sendODControlUpdate(int i){
 			msg[31]=0;
 		}
 	} else {
+               itoan(ports[i].value, &msg[28], 4);
+               msg[31]=0;
 
   	}
 
