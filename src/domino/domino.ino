@@ -218,12 +218,12 @@ enum outputChannel {
  organized in the following segments:
 
  -# Ports configuration: starting from the first byte (\ref EMPORTSOFFSET), with
-	20 Bytes (\ref EMPORTSLOT) for each port, it contains the alias and type of
+	13 Bytes (\ref EMPORTSLOT) for each port, it contains the alias and type of
 	each port.
- -# Links: starting after the ports segment (\ref EMLINKSOFFSET) contains the
-	index of two ports and a third byte for the type.
  -# Virtual port information: starting from \ref EMVPORTOFFSET, contains the
 	data of extended ports (virtual and grouped ports)
+ -# Links: starting after the ports segment (\ref EMLINKSOFFSET) contains the
+	index of two ports and a third byte for the type. 
  -# Network information: starting from \ref EMNETCFOFFSET, contains 20 bytes
 	with the network information (MAC(6) + IP(4) + GW(4) + MASK(4))
  -# Board information: starting in \ref EMBOARDOFFSET contains some information
@@ -233,38 +233,33 @@ enum outputChannel {
 
 #define DIGITALPORTS    14	//!< Number of digital ports
 #define ANALOGPORTS     6	//!< Number of analog ports
-#define VIRTUALPORTS    30	//!< Number of virtual ports
-#define MAXLINKS  	30	//!< Maximum number of links
-	// EEPROM Memory distribution
-/*#define FUNCSPACE     100	//!< Total space for on-board functions
-	//!< \ref EEPROM Bytes 000-399 Ports configuration
-#define EMVPORTOFFSET 400	//!< \ref EEPROM Bytes 400-499 Virtual ports
-#define EMLINKSOFFSET 500	//!< \ref EEPROM Bytes 500-699 Links
-#define EMNETCFOFFSET 800	//!< \ref EEPROM Bytes 800-820 Network: MAC(6) + IP(4)+GW(4)+MASK(4)
-#define EMBOARDOFFSET 850	//!< \ref EEPROM Bytes 850-899 Additional board information (name)
-#define EMFUNCSOFFSET 900	//!< \ref EEPROM Bytes 900-999 On-board functions*/
-#define EMSEGMENTS     50	//!< Number of segments in \ref EEPROM
+#define VIRTUALPORTS    10	//!< Number of virtual ports
+#define EMPORTSLOT 	13	//!< Reserved bytes for each port
+#define MAXLINKS 	15	//!< Number of links.
+#define EMLINKSLOT 	3	//!< Reserved bytes for each link
+
+// EEPROM Memory distribution. Preprocessor calculation
+
 #define EMPORTSOFFSET   0
-#define EMPORTSLOT 13		//!< Reserved bytes for each port
+#define EMAPORTSOFFSET 	(EMPORTSOFFSET +(DIGITALPORTS * EMPORTSLOT))   	//=> 14x13 =182
+#define EMVPORTSOFFSET 	(EMAPORTSOFFSET + (ANALOGPORTS * EMPORTSLOT))  	//=> 182+(6X13)=260
+#define EMLINKSOFFSET  	(EMVPORTSOFFSET + (VIRTUALPORTS * EMPORTSLOT)) 	//=> 260+(30X13)=650
+#define EMNETCFOFFSET 	(EMLINKSOFFSET + (MAXLINKS * EMLINKSLOT)) 	//=> 650+(30X3)=740
+#define	EMBOARDOFFSET 	(EMNETCFOFFSET+20)                              //=> 750+20=770
 
-#define EMAPORTSOFFSET (EMPORTSOFFSET +(DIGITALPORTS * EMPORTSLOT))    // =>  14x13 =182
-#define EMVPORTSOFFSET (EMAPORTSOFFSET + (ANALOGPORTS * EMPORTSLOT))  //=> 182+(6X13)=260
-#define EMLINKSOFFSET  (EMVPORTSOFFSET + (VIRTUALPORTS * EMPORTSLOT))  //=>260+(30X13)=650
-#define EMLINKSLOT 	3
-#define EMNETCFOFFSET  (EMLINKSOFFSET + (VIRTUALPORTS * EMLINKSLOT))  //=> 650+(30X3)=740
-#define	EMBOARDOFFSET (EMNETCFOFFSET+50)                              //=> 750+50=800
-
-
-#define EMPOSTYPEPORT 5
+// EEPROM position data ports slot.
+#define EMPOSTYPEPORT 	5
 #define EMPOSVISIBILITY 6
 #define EMPOSTYPEVIRTUAl 7
-#define EMPOSPARAM1 8
-#define EMPOSPARAM2 10
-#define EMPOSPARAM3 12	
+#define EMPOSPARAM1 	8
+#define EMPOSPARAM2 	10
+#define EMPOSPARAM3 	12	
 
+#define EMSEGMENTS 50		//!< Number of segments in \ref EEPROM
 #define DELAYCYCLE 100		//!< Delay in each cycle, in milliseconds
 #define BUFFERSIZE 50		//!< Maximum lenght for the command
 #define MAXCHANGES 6		//!< Maximum number of changes allowed per second
+
 
 /// Encoded values
 #define ANALOG  65		//!< Alias for ANALOG    ! ANALOG  DIGITAL
@@ -444,7 +439,11 @@ int owrite(byte out, const char *str)
 // }}}
 
 /*
-  
+//**Verifica si el tipo de link los caracteres validos
+//  el array esta en memoria de programa type_link[];
+//
+//  Entrada: Caracter a evaluar
+//  Devuelve: true o false.   
 */
 boolean validTypeLink (char type ){
   char t;
@@ -1277,12 +1276,6 @@ void refreshPortStatus()
                           val = ports[i].value;
 			if (ports[i].value != val)
 				triggerPortChange(i, ports[i].value, val);
-
-                                
-}
-				
-
-
 		} else if (ISINPUT(i)) {
                        
 			if (ISDIGITAL(i)) {
