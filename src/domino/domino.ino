@@ -1,4 +1,3 @@
-
 /**
  \file domino.ino
  \brief Domino (OpenDomo for Arduino)
@@ -418,7 +417,7 @@ byte pulseport = 0;		///< Pulse port configured (0 if none)
 ///! Seconds in a day
 #define DAYLENGHT 86400
 unsigned int days = 0;		///< Uptime days
-unsigned int seconds = 0;	///< Uptime seconds (after a day, it rolls back to zero)
+unsigned long seconds = 0;	///< Uptime seconds (after a day, it rolls back to zero)
 
 // {{{ owrite()
 int owrite(byte out, const char *str)
