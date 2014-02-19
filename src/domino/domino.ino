@@ -263,7 +263,7 @@ enum outputChannel {
 
 #define DELAYCYCLE 100		//!< Delay in each cycle, in milliseconds
 #define BUFFERSIZE 50		//!< Maximum lenght for the command
-#define MAXCHANGES 6		//!< Maximum number of changes allowed per second
+
 
 /// Encoded values
 #define ANALOG  65		//!< Alias for ANALOG    ! ANALOG  DIGITAL
@@ -329,7 +329,6 @@ enum eventType {
 struct portStruct {
 	byte type;			///< Type of the port (a, d, A, D, v, ...)
 	byte value;			///< Last value of the port
-	byte changes;			///< Number of changes in the last second
         byte counter;
 //	struct portRanges *range;	///< Ranges (only for analog ports)
 //	struct extendedData *extra;	///< Additional data for virtual ports
@@ -705,7 +704,6 @@ void triggerPortChange(byte port, byte ov, byte nv)
         if (dif == 0) return;             // Value didn't change return.
         
         
-	ports[port].changes++;
 	eeprom_get_str(pname, port*EMPORTSLOT, 6);
 	if (ISINPUT(port) && ISANALOG(port)) {
 	  //if (ports[port].type =='a') {
@@ -1317,19 +1315,7 @@ void refreshPortStatus()
 				triggerPortChange(i, ports[i].value, val);
 				delay(5);
 				ports[i].value = val;
-			}
-			// Los puertos de entrada son susceptibles a sufrir ruido (verificar solo
-			// durante los primeros 5s)
-			if (seconds < 5) {
-				if (ports[i].changes >= MAXCHANGES) {
-					// puerto ruidoso si hubo mas de MAXCHANGES cambios por segundo
-					ports[i].type = 'N';	// Desactivado
-//					eeprom_get_str(pname, i*EMPORTSLOT, 6);
-//					writef(output, "%c:%s.%s noisy\n",
-//					       WARNING, bname, pname);
-				}
-				ports[i].changes = 0;	// Ponemos a cero los contadores
-			}
+			}				
 		}
 	}
 }
