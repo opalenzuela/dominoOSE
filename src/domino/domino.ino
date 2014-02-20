@@ -1242,76 +1242,83 @@ void refreshPortStatus()
 {
 	byte i = 0;
 	byte k = 0;
-        int val;
+	int val;
 	char pname[6];
 	byte param1, param2, param3;
-
+	
 	for(i=0;i<TOTALPORTS;i++) {
 		val = 0;
-               
-		if (ISVIRTUAL(i)) { // Virtual ports: special case
+		// Virtual ports: special case
+		if (ISVIRTUAL(i)) {
 			param1 = eeprom_get_byte(EMPORTSOFFSET + i * EMPOSPARAM1);
 			param2 = eeprom_get_byte(EMPORTSOFFSET + i * EMPOSPARAM2);
 			param3 = eeprom_get_byte(EMPORTSOFFSET + i * EMPOSPARAM3);
+			
 			if (param3 == INS_INCREASE) {
-				ports[i].value = ports[param1].value + ports[param2].value;
- 			}else if (param3 == INS_AND) {
+				ports[i].value = ports[param1].value + ports[param2].value;			
+			}
+			else if (param3 == INS_AND) {
 				ports[i].value = ports[param1].value * ports[param2].value;
- 			}else if (param3 == INS_OR) {
+			}
+			else if (param3 == INS_OR) {
 				ports[i].value = ports[param1].value + ports[param2].value;
- 			}
-
-		} else if (ISOUTPUT(i)) {
-  
-                         if(ports[i].counter!=0){                          
-                          if (ports[i].counter==1)timePortEnd(i);
-                          ports[i].counter-=1;
-                        }
-                        
-                        if (ISDIGITAL(i))
-                          val = digitalRead(i);
-                        else
-                          val = ports[i].value;
+			}
+		} 
+		
+		else if (ISOUTPUT(i)) {
+		
+			if(ports[i].counter!=0){			
+				if (ports[i].counter==1)timePortEnd(i);
+				ports[i].counter-=1;
+			}
+			
+			if (ISDIGITAL(i)) val = digitalRead(i);
+			else val = ports[i].value;
+			
 			if (ports[i].value != val)
 				triggerPortChange(i, ports[i].value, val);
-
-                                
-}
-				
-
-
-		} else if (ISINPUT(i)) {
-                       
+		} 
+		
+		else if (ISINPUT(i)) {
+		
+			
+			 // Tratamiento puertos digitales.
 			if (ISDIGITAL(i)) {
 				// varias lecturas para minimizar problemas de ruido
-				val = HIGH;
+				val = HIGH;				
 				for (k = 0; k < 3; k++) {
 					if (digitalRead(i) != HIGH) {
-						val = LOW;
-						break;
-					}
+					val = LOW;
+					break;
+					}					
 					delay(10);
 				}
-
+				
 				if ((ports[i].value == LOW && val == HIGH)) {
 					triggerPortChange(i, ports[i].value, HIGH);
 					ports[i].value = HIGH;
-				} else if ((ports[i].value == HIGH && val == LOW )) {
+				} 
+				else if ((ports[i].value == HIGH && val == LOW )) {
 					triggerPortChange(i, ports[i].value, LOW);
 					ports[i].value = LOW;
 				}
 			}
+			
+			// Las entradas analogicas tienen un rango distinto
 			if (ISANALOG(i)) {
-				// Las entradas analogicas tienen un rango distinto
 				delay(5);
-				if (i-DIGITALPORTS == 0) { // LIGHT
+				//LDR
+				if (i-DIGITALPORTS == 0) {
 					val = analogRead(i - DIGITALPORTS);
 					val = (2.5 * val) ;
-				} else { // TEMPERATURE
-					val = analogRead(i - DIGITALPORTS);
-					val = (2.5 * val * 100.0) / 1024.0;
-					val = val / 10;
 				}
+				// TEMPERATURE
+				else {
+				val = analogRead(i - DIGITALPORTS);
+				val = (2.5 * val * 100.0) / 1024.0;
+				val = val / 10;
+				}
+				
 				triggerPortChange(i, ports[i].value, val);
 				delay(5);
 				ports[i].value = val;
