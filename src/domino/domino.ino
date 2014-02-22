@@ -385,7 +385,7 @@ prog_char str_http_footer_2[] PROGMEM = " </a></body></html>";
 byte h2d(char a, char b) __attribute__((noinline));
 void print_error(byte out, int code) __attribute__((noinline));
 void print_cmdok(byte out) __attribute__((noinline));
-int setPortValue(byte i, int value) __attribute__((noinline));
+boolean setPortValue(char id, int value) __attribute__((noinline));
 boolean processInstruction(const char *cmd) __attribute__((noinline));
 void writef(byte out, const char* fmt, ...);
 //char *flstr(prog_char *flash_str) __attribute__((noinline));
@@ -872,37 +872,37 @@ void triggerPortChange(byte port, byte ov, byte nv)
 /** Set a value for the specified port
  \param i Port index (see \ref getPortId)
  \param value New value
- \return 0 if the value could be assigned, other if not.
+ \return true if the value could be assigned, false if not.
 */
-int setPortValue(unsigned char i, int value)
+boolean setPortValue(char id, int value)
 {
 	char pname[6];
 	char buffer[20];
-	eeprom_get_str(pname, i*EMPORTSLOT, 6);
+	eeprom_get_str(pname, id*EMPORTSLOT, 6);
 
-	if (ISINPUT(i)) {
+	if (ISINPUT(id)) {
 //		writef(output, flstr(strfmt_error), ERROR, bname, pname, 107);
 		print_error(output,107);
 		return false;
 	}
 
-	else if (ISDIGITAL(i)) {
-		digitalWrite(i, value);
-		ports[i].value = value;
+	else if (ISDIGITAL(id)) {
+		digitalWrite(id, value);
+		ports[id].value = value;
 		if (output<HTTP)
 			writef(output, flstrn(strfmt_std,buffer,20), NOTICE, bname, pname, "value", value?ON:OFF,"");
-	} else if (ISANALOG(i)) {
-		analogWrite(i, value);
-		ports[i].value = value;
+	} else if (ISANALOG(id)) {
+		analogWrite(id, value);
+		ports[id].value = value;
 		if (output<HTTP)
 			writef(output, flstrn(strfmt_std_num,buffer,20), NOTICE, bname, pname, "value", value);
 /*	} else if (ISVIRTUAL(i)) {
 		triggerPortChange(i, LOW, HIGH); */
-	} else if (ISDISABLED(i)) {
+	} else if (ISDISABLED(id)) {
 		// Nothing. No warning neither
 	} else {
 		print_error(output,103);
-		return 1;
+		return false;
 	}
 	//print_cmdok(output);
 	//writef(output, flstr(strfmt_cmdok), NOTICE, bname, pname);
@@ -916,7 +916,7 @@ int setPortValue(unsigned char i, int value)
 */
 void resetPorts()
 {
-	unsigned char i;
+	char i;
 	for(i=0;i<TOTALPORTS;i++) {
 		/// @todo Alta impedancia if type = "-"
 		if (ISINPUT(i)) {
@@ -1032,7 +1032,7 @@ boolean configPort(char id, char *cfg, char *name)
 {
         int offsetSlot;
         offsetSlot=EMPORTSLOT * id;
-	if (id < 0)
+	if (id == -1)
 		return false;	// Ignoramos ID =-1 (puerto no encontrado)
 
 	byte i = 0;
@@ -1410,9 +1410,9 @@ void listPorts()
          or -2 (all buffer link used)
          or -3 (link already exists)       
 */
-char addLink(byte port1, byte port2, char type)
+char addLink(char port1, char port2, char type)
 {
-	byte l;
+	char l;
         if ((port1 == -1) || (port2 == -1))return -1;
 
 	if ((ISINPUT(port1) && ISOUTPUT(port2)) || ISVIRTUAL(port1)) {
@@ -1440,11 +1440,11 @@ char addLink(byte port1, byte port2, char type)
  \param port2 Triggered port
  \return 0 if everything went right, otherwise -1
 */
-byte delLink(byte port1, byte port2)
+char delLink(char port1, char port2)
 {
-	byte l;
+	char l;
 	if ((port1 == -1) || (port2 == -1))
-		return -2;
+		return -1;
 	for (l=0;l<MAXLINKS;l++) {
 		if ((links[l][0] == port1) && (links[l][1] == port2)) {
 			links[l][0] = 0;
@@ -1453,7 +1453,7 @@ byte delLink(byte port1, byte port2)
 			return 0;
 		}
 	}
-	return -1;		// Enlace no encontrado
+	return -2;		// Enlace no encontrado
 }
 
 /** \page VPorts Virtual Ports
@@ -1469,16 +1469,17 @@ byte delLink(byte port1, byte port2)
 
 /** Get the specified port index
  \param label Name of the port
- \return The port's index, or -1 if not found
+ \return The port's index, or -1 if not found .
+ \Maxim 127 ports.
 */
-byte getPortId(char *label)
+char getPortId(char *label)
 {
-	byte i;
+	char id;
 	char pname[6];
-	for(i=0;i<TOTALPORTS;i++) {
-		eeprom_get_str(pname, i*EMPORTSLOT, 6);
+	for(id=0;id<TOTALPORTS;id++) {
+		eeprom_get_str(pname, id*EMPORTSLOT, 6);
 		if (strncmp(pname, label, 5) == 0)
-			return i;
+			return id;
 	}
 	print_error(output,101);
 	return -1;
@@ -1589,11 +1590,11 @@ int ethControl(const char *cmd)
 /// {{{
 int groupPorts(char* port1, char* port2){
 	byte i;
-	byte port1_id = getPortId(port1);
-	byte port2_id = getPortId(port2);
+	char port1_id = getPortId(port1);
+	char port2_id = getPortId(port2);
 	short pos;
 	char buffer[16];
-	if (port1_id < 0 || port2_id < 0) return 101;
+	if (port1_id == -1 || port2_id == -1) return 101;
 	for(i=ANALOGPORTS+DIGITALPORTS;i<TOTALPORTS;i++){
 		pos = EMPORTSOFFSET + i * EMPORTSLOT;
 		if (eeprom_get_byte(pos + 18) > 30 && eeprom_get_byte(pos + 18) < 200) {
@@ -1688,15 +1689,15 @@ void printMap()
 */
 boolean processInstruction(const char *cmd)
 {
-	int i;
-	byte j;
+	char id1,id2;
+	//char id2;
+	int i,j;
 //char buffer[10];
 	char arg1[6];		// First argument (if specified)
 	char arg2[6];		// Second argument (if specified)
-	//int value = 0;
 	int code = 0;
-        int incident=-1;
-        char funcionout=0;
+    int incident=-1;
+    char funcionout=0;
 	//! @todo Change "code" to zero if invalid char
 	code = (cmd[0] - 96) << 10;
 	code += (cmd[1] - 96) << 5;
@@ -1757,14 +1758,14 @@ boolean processInstruction(const char *cmd)
 		break;
 
 	case CMD_CFG:		/// - cfg: configures the specified port
-		i = getPortId(arg1);
-		if (configPort(i, arg2, NULL)) 	incident=0;		
+		id1 = getPortId(arg1);
+		if (configPort(id1, arg2, NULL)) 	incident=0;		
 		resetPorts();
 		break;
 
 	case CMD_LBL:		/// - lbl: set an alias to a port
-		i = getPortId(arg1);
-		if (configPort(i, NULL, arg2))	incident=0;		
+		id1 = getPortId(arg1);
+		if (configPort(id1, NULL, arg2))	incident=0;		
 		break;
 
 	case CMD_RES:		/// - reset: clear the EEPROM
@@ -1796,25 +1797,24 @@ boolean processInstruction(const char *cmd)
 		break;
 
 	case CMD_GRP: 		/// - grp: group 2 ports into a virtualport
-		i = groupPorts(arg1,arg2);
-		if(i==true) incident=0;			
+		if(groupPorts(arg1,arg2)) incident=0;			
 		else incident=i;
 		break;
 
 	case CMD_SOP:		/// - sop: Set operation to grouped port
-		i = getPortId(arg1);
+		id1 = getPortId(arg1);
 		if (true==setOperation(getPortId(arg1),arg2))
 			incident=0;
 		break;
 
 	case CMD_SET:		/// - set: set a value to an output port
-		i = getPortId(arg1);
+		id1 = getPortId(arg1);
 		if (arg2[1] == 'n')
-			setPortValue(i, HIGH);
+			setPortValue(id1, HIGH);
 		else if (arg2[1] == 'f')
-			setPortValue(i, LOW);
+			setPortValue(id1, LOW);
 		else
-			setPortValue(i, atoi(arg2));
+			setPortValue(id1, atoi(arg2));
 
 #ifdef ENABLE_NETWORKING
 		sendODControlUpdate(i);
@@ -1823,11 +1823,11 @@ boolean processInstruction(const char *cmd)
 		break;
 
 	case CMD_LNK:		/// - lnk: link two ports
-		i = getPortId(arg1);            // Indice del puerto origen
-		j = getPortId(arg2);            // Indice del puerto destino
+		id1 = getPortId(arg1);            // Indice del puerto origen
+		id2 = getPortId(arg2);            // Indice del puerto destino
                
                 if (validTypeLink(cmd[16])==true){
-                  funcionout=addLink(i, j, cmd[16]);                 
+                  funcionout=addLink(id1, id2, cmd[16]);                 
                   if (funcionout>=0)incident=0;
                   else if (funcionout==-2)incident=302;
                   else if (funcionout==-3)incident=301;
@@ -1836,9 +1836,11 @@ boolean processInstruction(const char *cmd)
 		break;
 
 	case CMD_UNL:		/// - unl: unlink two portsValid
-		i = getPortId(arg1);
-		j = getPortId(arg2);
-		if (delLink(i, j) == 0) incident=0;
+		id1 = getPortId(arg1);
+		id2 = getPortId(arg2);
+		funcionout=delLink(id1, id2);
+		if (funcionout == 0) incident=0;	// Todo OK
+		else if (funcionout == -2) incident=307; // Enlace no encontrado
 		break;
 		
 
