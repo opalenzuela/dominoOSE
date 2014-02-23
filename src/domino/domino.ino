@@ -217,12 +217,12 @@ enum outputChannel {
  organized in the following segments:
 
  -# Ports configuration: starting from the first byte (\ref EMPORTSOFFSET), with
-	20 Bytes (\ref EMPORTSLOT) for each port, it contains the alias and type of
+	13 Bytes (\ref EMPORTSLOT) for each port, it contains the alias and type of
 	each port.
- -# Links: starting after the ports segment (\ref EMLINKSOFFSET) contains the
-	index of two ports and a third byte for the type.
  -# Virtual port information: starting from \ref EMVPORTOFFSET, contains the
 	data of extended ports (virtual and grouped ports)
+ -# Links: starting after the ports segment (\ref EMLINKSOFFSET) contains the
+	index of two ports and a third byte for the type. 
  -# Network information: starting from \ref EMNETCFOFFSET, contains 20 bytes
 	with the network information (MAC(6) + IP(4) + GW(4) + MASK(4))
  -# Board information: starting in \ref EMBOARDOFFSET contains some information
@@ -233,36 +233,32 @@ enum outputChannel {
 #define DIGITALPORTS    14	//!< Number of digital ports
 #define ANALOGPORTS     6	//!< Number of analog ports
 #define VIRTUALPORTS    30	//!< Number of virtual ports
-#define MAXLINKS  	30	//!< Maximum number of links
-	// EEPROM Memory distribution
-/*#define FUNCSPACE     100	//!< Total space for on-board functions
-	//!< \ref EEPROM Bytes 000-399 Ports configuration
-#define EMVPORTOFFSET 400	//!< \ref EEPROM Bytes 400-499 Virtual ports
-#define EMLINKSOFFSET 500	//!< \ref EEPROM Bytes 500-699 Links
-#define EMNETCFOFFSET 800	//!< \ref EEPROM Bytes 800-820 Network: MAC(6) + IP(4)+GW(4)+MASK(4)
-#define EMBOARDOFFSET 850	//!< \ref EEPROM Bytes 850-899 Additional board information (name)
-#define EMFUNCSOFFSET 900	//!< \ref EEPROM Bytes 900-999 On-board functions*/
-#define EMSEGMENTS     50	//!< Number of segments in \ref EEPROM
+#define EMPORTSLOT 	13	//!< Reserved bytes for each port
+#define MAXLINKS 	30	//!< Number of links.
+#define EMLINKSLOT 	3	//!< Reserved bytes for each link
+
+// EEPROM Memory distribution. Preprocessor calculation
+
 #define EMPORTSOFFSET   0
-#define EMPORTSLOT 13		//!< Reserved bytes for each port
+#define EMAPORTSOFFSET 	(EMPORTSOFFSET +(DIGITALPORTS * EMPORTSLOT))   	//=> 14x13 =182
+#define EMVPORTSOFFSET 	(EMAPORTSOFFSET + (ANALOGPORTS * EMPORTSLOT))  	//=> 182+(6X13)=260
+#define EMLINKSOFFSET  	(EMVPORTSOFFSET + (VIRTUALPORTS * EMPORTSLOT)) 	//=> 260+(30X13)=650
+#define EMNETCFOFFSET 	(EMLINKSOFFSET + (MAXLINKS * EMLINKSLOT)) 	//=> 650+(30X3)=740
+#define	EMBOARDOFFSET 	(EMNETCFOFFSET+20)                              //=> 750+20=770
 
-#define EMAPORTSOFFSET (EMPORTSOFFSET +(DIGITALPORTS * EMPORTSLOT))    // =>  14x13 =182
-#define EMVPORTSOFFSET (EMAPORTSOFFSET + (ANALOGPORTS * EMPORTSLOT))  //=> 182+(6X13)=260
-#define EMLINKSOFFSET  (EMVPORTSOFFSET + (VIRTUALPORTS * EMPORTSLOT))  //=>260+(30X13)=650
-#define EMLINKSLOT 	3
-#define EMNETCFOFFSET  (EMLINKSOFFSET + (VIRTUALPORTS * EMLINKSLOT))  //=> 650+(30X3)=740
-#define	EMBOARDOFFSET (EMNETCFOFFSET+50)                              //=> 750+50=800
-
-
-#define EMPOSTYPEPORT 5
+// EEPROM position data ports slot.
+#define EMPOSTYPEPORT 	5
 #define EMPOSVISIBILITY 6
 #define EMPOSTYPEVIRTUAl 7
-#define EMPOSPARAM1 8
-#define EMPOSPARAM2 10
-#define EMPOSPARAM3 12	
+#define EMPOSPARAM1 	8
+#define EMPOSPARAM2 	10
+#define EMPOSPARAM3 	12	
 
+#define EMSEGMENTS 50		//!< Number of segments in \ref EEPROM
 #define DELAYCYCLE 100		//!< Delay in each cycle, in milliseconds
 #define BUFFERSIZE 50		//!< Maximum lenght for the command
+#define MAXCHANGES 6		//!< Maximum number of changes allowed per second
+
 
 
 /// Encoded values
@@ -385,7 +381,7 @@ prog_char str_http_footer_2[] PROGMEM = " </a></body></html>";
 byte h2d(char a, char b) __attribute__((noinline));
 void print_error(byte out, int code) __attribute__((noinline));
 void print_cmdok(byte out) __attribute__((noinline));
-int setPortValue(byte i, int value) __attribute__((noinline));
+boolean setPortValue(char id, int value) __attribute__((noinline));
 boolean processInstruction(const char *cmd) __attribute__((noinline));
 void writef(byte out, const char* fmt, ...);
 //char *flstr(prog_char *flash_str) __attribute__((noinline));
@@ -567,34 +563,6 @@ char *itoan(int val, char *result, byte len)
 	}
 	return result;  
 }
-
-/*	Function reduced by Cosmopaco
-	int i = val;
-	byte c = 0;
-	len--;
-
-	for (i = 0; i <= len; i++)
-		result[i] = '0';	//Rellenamos con ceros
-
-	while (i > 0) {
-		c++;
-		i /= 10;
-	}
-
-	if (c > len)
-		return result;	// Too less bytes to represent
-
-	result[len] = 0;
-	c = len;
-	i = val;
-	while (i > 0) {
-		int digit = i - 10 * (i / 10);
-		i /= 10;
-		result[--c] = digit + 48;
-	}
-	return result; 
-} */
-
 // }}}
 
 // {{{ h2d(): hexadecimal chars to decimal
@@ -646,22 +614,23 @@ void timePortEnd(byte port)
                 switch (ports[(links[i][0])].counter){
                       case 11:
                           if ( ports[(links[i][1])].value < 245){
-                            setPortValue(links[i][1], ports[(links[i][1])].value+=10);
-                            ports[(links[i][1])].counter=TIMEPULSE;    // Recarga timer proximo incremento
+                            setPortValue(links[i][1], ports[(links[i][1])].value+=5);
+                            ports[(links[i][1])].counter=2;    // Recarga timer proximo incremento
                           }
                           else{
-                            ports[(links[i][1])].value =255;
+                            setPortValue(links[i][1], ports[(links[i][1])].value=255);
                           }
                       
                       break;
                       case 12:
                           setPortValue(links[i][1], ports[(links[i][1])].value=0);
+                          ports[(links[i][0])].counter=0;
                       break;
                       
                       case 13:
                           if (ports[(links[i][1])].value > 10){
-                            setPortValue(links[i][1], ports[(links[i][1])].value-=10);
-                            ports[(links[i][1])].counter=TIMEPULSE;
+                            setPortValue(links[i][1], ports[(links[i][1])].value-=5);
+                            ports[(links[i][1])].counter=2;
                           }
                           else{
                             setPortValue(links[i][1], ports[(links[i][1])].value=0);                 
@@ -872,37 +841,37 @@ void triggerPortChange(byte port, byte ov, byte nv)
 /** Set a value for the specified port
  \param i Port index (see \ref getPortId)
  \param value New value
- \return 0 if the value could be assigned, other if not.
+ \return true if the value could be assigned, false if not.
 */
-int setPortValue(unsigned char i, int value)
+boolean setPortValue(char id, int value)
 {
 	char pname[6];
 	char buffer[20];
-	eeprom_get_str(pname, i*EMPORTSLOT, 6);
+	eeprom_get_str(pname, id*EMPORTSLOT, 6);
 
-	if (ISINPUT(i)) {
+	if (ISINPUT(id)) {
 //		writef(output, flstr(strfmt_error), ERROR, bname, pname, 107);
 		print_error(output,107);
 		return false;
 	}
 
-	else if (ISDIGITAL(i)) {
-		digitalWrite(i, value);
-		ports[i].value = value;
+	else if (ISDIGITAL(id)) {
+		digitalWrite(id, value);
+		ports[id].value = value;
 		if (output<HTTP)
 			writef(output, flstrn(strfmt_std,buffer,20), NOTICE, bname, pname, "value", value?ON:OFF,"");
-	} else if (ISANALOG(i)) {
-		analogWrite(i, value);
-		ports[i].value = value;
+	} else if (ISANALOG(id)) {
+		analogWrite(id, value);
+		ports[id].value = value;
 		if (output<HTTP)
 			writef(output, flstrn(strfmt_std_num,buffer,20), NOTICE, bname, pname, "value", value);
 /*	} else if (ISVIRTUAL(i)) {
 		triggerPortChange(i, LOW, HIGH); */
-	} else if (ISDISABLED(i)) {
+	} else if (ISDISABLED(id)) {
 		// Nothing. No warning neither
 	} else {
 		print_error(output,103);
-		return 1;
+		return false;
 	}
 	//print_cmdok(output);
 	//writef(output, flstr(strfmt_cmdok), NOTICE, bname, pname);
@@ -916,7 +885,7 @@ int setPortValue(unsigned char i, int value)
 */
 void resetPorts()
 {
-	unsigned char i;
+	char i;
 	for(i=0;i<TOTALPORTS;i++) {
 		/// @todo Alta impedancia if type = "-"
 		if (ISINPUT(i)) {
@@ -968,7 +937,7 @@ int loadConfig()
 
 	for(x=0;x<TOTALPORTS;x++) {
 		dir = int (EMPORTSOFFSET + x * EMPORTSLOT);
-		ports[x].type = eeprom_get_byte(dir + 5);
+		ports[x].type = eeprom_get_byte(dir +  EMPOSTYPEPORT);
 
 		if (!ISVALIDCHAR(ports[x].type))
 			ports[x].type = 'x';
@@ -994,16 +963,14 @@ int loadConfig()
 }
 
 /// Save the configuration into the EEPROM (see \ref EEPROM Map)
-int saveConfig()
+void saveConfig()
 {
 	unsigned char x;
-//	int y;
 	short dir;
-//	unsigned char b;
 
 	for(x=0;x<TOTALPORTS;x++) {
 		dir = int (EMPORTSOFFSET + x * EMPORTSLOT);
-		eeprom_set_byte(dir + 5, ports[x].type);
+		eeprom_set_byte(dir + EMPOSTYPEPORT, ports[x].type);
 
 		if ((x == alarmport) && (alarmport!=0)) {
 			eeprom_set_byte(dir + 7, 'a');
@@ -1012,14 +979,12 @@ int saveConfig()
 		}
 	}
 	for (x = 0; x < MAXLINKS; x++) {
-		eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 0, links[x][0]);
+		eeprom_set_Link(x);
+		/*eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 0, links[x][0]);
 		eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 1, links[x][1]);
-		eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 2, links[x][2]);
-		//eeprom_set_byte(EMLINKSOFFSET + x * 5 + 3, '-');
-		//eeprom_set_byte(EMLINKSOFFSET + x * 5 + 4, '-');
-	}
-
-	return true;
+		eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 2, links[x][2]);*/
+		
+	}	
 }
 
 /** Set a port's configuration (and name)
@@ -1032,7 +997,7 @@ boolean configPort(char id, char *cfg, char *name)
 {
         int offsetSlot;
         offsetSlot=EMPORTSLOT * id;
-	if (id < 0)
+	if (id == -1)
 		return false;	// Ignoramos ID =-1 (puerto no encontrado)
 
 	byte i = 0;
@@ -1086,7 +1051,7 @@ boolean configPort(char id, char *cfg, char *name)
 			}
 			i++;
 		}
-                eeprom_set_byte(offsetSlot + 5, ports[id].type);
+                eeprom_set_byte(offsetSlot + EMPOSTYPEPORT, ports[id].type);
         }
 	debug_write(id);
 	debug_write(cfg);
@@ -1106,42 +1071,18 @@ boolean configPort(char id, char *cfg, char *name)
 /** Load the default configuration.
  Useful if the EEPROM was empty or corrupted or before loading a template.
 */
-int loadDefaultConfig()
+void loadDefaultConfig()
 {
 	byte i;
-/*	char pname[6];
-	char buffer[10];
-	strlcpy(pname, flstrn(str_empty,buffer,10), sizeof(pname));
-	byte i;
-
-	// First we set the default names
-	for(i=0;i<TOTALPORTS;i++) {
-		if (i >= DIGITALPORTS + ANALOGPORTS) {	// Virtual ports
-			itoan(i - (DIGITALPORTS + ANALOGPORTS), pname, 6);
-			pname[0] = 'v';
-			configPort(i, (char*)"-", pname);
-		} else if (i < DIGITALPORTS) {	// Digital ports
-			// Evitamos configurar los puertos de red
-			//if (network!=0 && (i!=11 && i!=12 && i!=13)) {
-			itoan(i, pname, 6);
-			pname[0] = 'd';
-			pname[1] = 'o';
-			configPort(i, NULL, pname);
-			//}
-		} else if ((i >= DIGITALPORTS) && (i < DIGITALPORTS + ANALOGPORTS)) {	// Analog:
-			itoan(i - DIGITALPORTS, pname, 6);
-			pname[0] = 'a';
-			pname[1] = 'i';
-			configPort(i, (char*) "ai", pname);
-		}
-
-
-	}
-	*/
+	char pname[6];
+	
+	// Links
+	// No links in default configuration	
 	for (i=0;i<MAXLINKS;i++){
-		emptyLink(i);	// No links in default configuration
+		emptyLink(i);			
 	}
-
+	
+	// Ports
 	configPort(2, (char *)"di", "di002");
 	configPort(3, (char *)"di", "di003");
 	
@@ -1165,12 +1106,22 @@ int loadDefaultConfig()
 	configPort(17, (char *)"-",  "ai003");
 	configPort(18, (char *)"-",  "ai004");
 	configPort(19, (char *)"-",  "ai005");
-
+	
+	// Virtuals ports
+	for (i=0; i<MAXLINKS; i++){
+		itoan(i, pname, 6);
+		pname[0] = 'v';
+		configPort(i + (DIGITALPORTS + ANALOGPORTS), (char*)"-", pname);         
+	}
+	
+	
+	/*
 	// Virtual ports
 	configPort(20, (char *)"-", "vt000");
 	configPort(21, (char *)"-", "vt001");
 	configPort(22, (char *)"-", "vt002");
 	configPort(23, (char *)"-", "vt003");
+	*/
 
 #ifdef ENABLE_NETWORKING
 	// Default network configuration
@@ -1179,8 +1130,8 @@ int loadDefaultConfig()
 	ethSetGW(defip[0], defip[1], defip[2], 1);
 	ethSetNetmask(255, 255, 255, 0);
 #endif
-
-	return true;
+	// Guarda configuración en Eeprom.
+	saveConfig();
 }
 
 /// This function reads the command from the serial port
@@ -1342,13 +1293,14 @@ void listLinks()
 		if ((links[i][0] != 0) && (links[i][1] != 0)) {
 			eeprom_get_str(pname1, links[i][0]*EMPORTSLOT, 6);
 			eeprom_get_str(pname2, links[i][1]*EMPORTSLOT, 6);
-			writef(output, flstrn(strfmt_lnk,buffer,20), INFO, bname, pname1,
-			       pname2, (char*)links[i][2]);
+			//writef(output, flstrn(strfmt_lnk,buffer,20), INFO, bname, pname1,
+			//       pname2, (char*)links[i][2]);
+			writef(output, "%s:%s:%c\n", pname1, pname2, (char*)links[i][2]);
 			a++;
 		}
 		// Formato de salida:
-		// 01234567890123456789012345 (byte nÂº)
-		// I:port1-port2 type
+		// 01234567890123456789012345 
+		// port1:port2:type
 	}
 	if (a == 0) print_cmdok(output);
 //		writef(output, "W:no links\n");
@@ -1402,6 +1354,18 @@ void listPorts()
 
 // }}}
 
+/**Guarda en Eeprom el Link.
+  \Entradas : Nº link, puerto origen, puerto destino, tipo enlace.
+  \Salida ; Vacio.
+
+*/
+void eeprom_set_Link(char lnk){
+		eeprom_set_byte(EMLINKSOFFSET + lnk * EMLINKSLOT + 0, links[lnk][0]);
+		eeprom_set_byte(EMLINKSOFFSET + lnk * EMLINKSLOT + 1, links[lnk][1]);
+		eeprom_set_byte(EMLINKSOFFSET + lnk * EMLINKSLOT + 2, links[lnk][2]);      
+      
+}
+
 /** Links two ports
  \param port1 Trigger port (usually input)
  \param port2 Triggered port (usually output)
@@ -1410,10 +1374,11 @@ void listPorts()
          or -2 (all buffer link used)
          or -3 (link already exists)       
 */
-char addLink(byte port1, byte port2, char type)
+char addLink(char port1, char port2, char type)
 {
-	byte l;
-        if ((port1 == -1) || (port2 == -1))return -1;
+	char l;
+    
+	if ((port1 == -1) || (port2 == -1))return -1;
 
 	if ((ISINPUT(port1) && ISOUTPUT(port2)) || ISVIRTUAL(port1)) {
 		for (l=0;l<MAXLINKS;l++) {
@@ -1427,6 +1392,7 @@ char addLink(byte port1, byte port2, char type)
 				links[l][0] = port1;
 				links[l][1] = port2;
 				links[l][2] = type;
+				eeprom_set_Link(l);
 				return l;
 			}
 			
@@ -1440,20 +1406,21 @@ char addLink(byte port1, byte port2, char type)
  \param port2 Triggered port
  \return 0 if everything went right, otherwise -1
 */
-byte delLink(byte port1, byte port2)
+char delLink(char port1, char port2)
 {
-	byte l;
+	char l;
 	if ((port1 == -1) || (port2 == -1))
-		return -2;
+		return -1;
 	for (l=0;l<MAXLINKS;l++) {
 		if ((links[l][0] == port1) && (links[l][1] == port2)) {
 			links[l][0] = 0;
 			links[l][1] = 0;
 			links[l][2] = 0;
+			eeprom_set_Link(l);
 			return 0;
 		}
 	}
-	return -1;		// Enlace no encontrado
+	return -2;		// Enlace no encontrado
 }
 
 /** \page VPorts Virtual Ports
@@ -1469,16 +1436,17 @@ byte delLink(byte port1, byte port2)
 
 /** Get the specified port index
  \param label Name of the port
- \return The port's index, or -1 if not found
+ \return The port's index, or -1 if not found .
+ \Maxim 127 ports.
 */
-byte getPortId(char *label)
+char getPortId(char *label)
 {
-	byte i;
+	char id;
 	char pname[6];
-	for(i=0;i<TOTALPORTS;i++) {
-		eeprom_get_str(pname, i*EMPORTSLOT, 6);
+	for(id=0;id<TOTALPORTS;id++) {
+		eeprom_get_str(pname, id*EMPORTSLOT, 6);
 		if (strncmp(pname, label, 5) == 0)
-			return i;
+			return id;
 	}
 	print_error(output,101);
 	return -1;
@@ -1589,11 +1557,11 @@ int ethControl(const char *cmd)
 /// {{{
 int groupPorts(char* port1, char* port2){
 	byte i;
-	byte port1_id = getPortId(port1);
-	byte port2_id = getPortId(port2);
+	char port1_id = getPortId(port1);
+	char port2_id = getPortId(port2);
 	short pos;
 	char buffer[16];
-	if (port1_id < 0 || port2_id < 0) return 101;
+	if (port1_id == -1 || port2_id == -1) return 101;
 	for(i=ANALOGPORTS+DIGITALPORTS;i<TOTALPORTS;i++){
 		pos = EMPORTSOFFSET + i * EMPORTSLOT;
 		if (eeprom_get_byte(pos + 18) > 30 && eeprom_get_byte(pos + 18) < 200) {
@@ -1688,15 +1656,15 @@ void printMap()
 */
 boolean processInstruction(const char *cmd)
 {
-	int i;
-	byte j;
+	char id1,id2;
+	//char id2;
+	int i,j;
 //char buffer[10];
 	char arg1[6];		// First argument (if specified)
 	char arg2[6];		// Second argument (if specified)
-	//int value = 0;
 	int code = 0;
-        int incident=-1;
-        char funcionout=0;
+    int incident=-1;
+    char funcionout=0;
 	//! @todo Change "code" to zero if invalid char
 	code = (cmd[0] - 96) << 10;
 	code += (cmd[1] - 96) << 5;
@@ -1751,20 +1719,20 @@ boolean processInstruction(const char *cmd)
 		else incident=21;	
 		break;
 
-	case CMD_SAV:		/// - save: save configuration to EEPROM		
-                if (saveConfig()) incident=0;
-		else incident=22; 	
+	case CMD_SAV:		/// - save: save configuration to EEPROM
+		saveConfig();
+		incident=0;
 		break;
 
 	case CMD_CFG:		/// - cfg: configures the specified port
-		i = getPortId(arg1);
-		if (configPort(i, arg2, NULL)) 	incident=0;		
+		id1 = getPortId(arg1);
+		if (configPort(id1, arg2, NULL)) 	incident=0;		
 		resetPorts();
 		break;
 
 	case CMD_LBL:		/// - lbl: set an alias to a port
-		i = getPortId(arg1);
-		if (configPort(i, NULL, arg2))	incident=0;		
+		id1 = getPortId(arg1);
+		if (configPort(id1, NULL, arg2))	incident=0;		
 		break;
 
 	case CMD_RES:		/// - reset: clear the EEPROM
@@ -1796,25 +1764,24 @@ boolean processInstruction(const char *cmd)
 		break;
 
 	case CMD_GRP: 		/// - grp: group 2 ports into a virtualport
-		i = groupPorts(arg1,arg2);
-		if(i==true) incident=0;			
+		if(groupPorts(arg1,arg2)) incident=0;			
 		else incident=i;
 		break;
 
 	case CMD_SOP:		/// - sop: Set operation to grouped port
-		i = getPortId(arg1);
+		id1 = getPortId(arg1);
 		if (true==setOperation(getPortId(arg1),arg2))
 			incident=0;
 		break;
 
 	case CMD_SET:		/// - set: set a value to an output port
-		i = getPortId(arg1);
+		id1 = getPortId(arg1);
 		if (arg2[1] == 'n')
-			setPortValue(i, HIGH);
+			setPortValue(id1, HIGH);
 		else if (arg2[1] == 'f')
-			setPortValue(i, LOW);
+			setPortValue(id1, LOW);
 		else
-			setPortValue(i, atoi(arg2));
+			setPortValue(id1, atoi(arg2));
 
 #ifdef ENABLE_NETWORKING
 		sendODControlUpdate(i);
@@ -1823,11 +1790,11 @@ boolean processInstruction(const char *cmd)
 		break;
 
 	case CMD_LNK:		/// - lnk: link two ports
-		i = getPortId(arg1);            // Indice del puerto origen
-		j = getPortId(arg2);            // Indice del puerto destino
+		id1 = getPortId(arg1);            // Indice del puerto origen
+		id2 = getPortId(arg2);            // Indice del puerto destino
                
                 if (validTypeLink(cmd[16])==true){
-                  funcionout=addLink(i, j, cmd[16]);                 
+                  funcionout=addLink(id1, id2, cmd[16]);                 
                   if (funcionout>=0)incident=0;
                   else if (funcionout==-2)incident=302;
                   else if (funcionout==-3)incident=301;
@@ -1836,9 +1803,11 @@ boolean processInstruction(const char *cmd)
 		break;
 
 	case CMD_UNL:		/// - unl: unlink two portsValid
-		i = getPortId(arg1);
-		j = getPortId(arg2);
-		if (delLink(i, j) == 0) incident=0;
+		id1 = getPortId(arg1);
+		id2 = getPortId(arg2);
+		funcionout=delLink(id1, id2);
+		if (funcionout == 0) incident=0;	// Todo OK
+		else if (funcionout == -2) incident=307; // Enlace no encontrado
 		break;
 		
 
