@@ -172,6 +172,7 @@ enum outputChannel {
 #define CMD_LNK BYTE1_L + BYTE2_N + BYTE3_K
 #define CMD_LOA BYTE1_L + BYTE2_O + BYTE3_A
 #define CMD_LST BYTE1_L + BYTE2_S + BYTE3_T
+#define CMD_LSC BYTE1_L + BYTE2_S + BYTE3_C
 #define CMD_MAP BYTE1_M + BYTE2_A + BYTE3_P
 #define CMD_MEM BYTE1_M + BYTE2_E + BYTE3_M
 #define CMD_PUT BYTE1_P + BYTE2_U + BYTE3_T
@@ -325,18 +326,17 @@ enum eventType {
 struct portStruct {
 	byte type;			///< Type of the port (a, d, A, D, v, ...)
 	byte value;			///< Last value of the port
-        byte counter;
+	byte counter;
 //	struct portRanges *range;	///< Ranges (only for analog ports)
 //	struct extendedData *extra;	///< Additional data for virtual ports
 } ports[TOTALPORTS];
 
+//! Link table (3 bytes: port1, port2 and type)
+byte links[MAXLINKS][3];
 
 //! Board name
 char bname[6];
-//! Link table (3 bytes: port1, port2 and type)
-byte links[MAXLINKS][3];
-//! Last link created or referenced
-byte lastlink = 0;
+
 
 
 // {{{ Flash Strings
@@ -555,6 +555,7 @@ void printMemory(){
 char *itoan(int val, char *result, byte len)
 {
 	int i = val;
+
 	result[--len] = 0;
 	while (len != 0) {
 		len--;
@@ -623,7 +624,11 @@ void timePortEnd(byte port)
                       
                       break;
                       case 12:
-                          setPortValue(links[i][1], ports[(links[i][1])].value=0);
+                          if (ports[(links[i][1])].value>0)
+                                setPortValue(links[i][1], ports[(links[i][1])].value=0);
+                          else 
+                              setPortValue(links[i][1], ports[(links[i][1])].value=255);
+                              
                           ports[(links[i][0])].counter=0;
                       break;
                       
@@ -652,25 +657,24 @@ void timePortEnd(byte port)
 */
 void triggerPortChange(byte port, byte ov, byte nv)
 {
-        char buffer[20];
-        char format[20];
-        flstrn(strfmt_std_num,format,20);
-        char pname[6];
-        int i;
-        // Variables y macros tipo de flanco Differtial UP or Differettial Down
+	char buffer[20];
+	char format[20];
+	flstrn(strfmt_std_num,format,20);
+	char pname[6];
+	int i;
+	
+	// Variables y macros tipo de flanco Differtial UP or Differettial Down
 	byte dif=0;
-        #define DIFU  2
-        #define DIFD  1
+	#define DIFU  2
+	#define DIFD  1
 	#define ISDIFU  (dif==DIFU)
 	#define ISDIFD  (dif==DIFD)
 	#define CHANGED (!dif==0)          // Se usa por seguridad no es necesario.
 	
-	
-        
-        if (ov > nv) dif=DIFD;            // Solves differential change, Up or Down
+	if (ov > nv) dif=DIFD;            // Solves differential change, Up or Down
 	else if (ov < nv) dif=DIFU;
-
-        if (dif == 0) return;             // Value didn't change return.
+	
+	if (dif == 0) return;             // Value didn't change return.
         
         
 	eeprom_get_str(pname, port*EMPORTSLOT, 6);
@@ -850,7 +854,6 @@ boolean setPortValue(char id, int value)
 	eeprom_get_str(pname, id*EMPORTSLOT, 6);
 
 	if (ISINPUT(id)) {
-//		writef(output, flstr(strfmt_error), ERROR, bname, pname, 107);
 		print_error(output,107);
 		return false;
 	}
@@ -929,7 +932,6 @@ int saveBoardName(char *name)
 int loadConfig()
 {
 	unsigned char x;
-//	int y;
 	short dir;
 
 	// Read the board's name (and set a default one if missing)
@@ -980,10 +982,7 @@ void saveConfig()
 	}
 	for (x = 0; x < MAXLINKS; x++) {
 		eeprom_set_Link(x);
-		/*eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 0, links[x][0]);
-		eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 1, links[x][1]);
-		eeprom_set_byte(EMLINKSOFFSET + x * EMLINKSLOT + 2, links[x][2]);*/
-		
+			
 	}	
 }
 
@@ -997,24 +996,45 @@ boolean configPort(char id, char *cfg, char *name)
 {
         int offsetSlot;
         offsetSlot=EMPORTSLOT * id;
+        char auxType='?';
+        char auxVisi='?';
 	if (id == -1)
 		return false;	// Ignoramos ID =-1 (puerto no encontrado)
 
 	byte i = 0;
 	if (cfg != NULL) {
-		ports[id].type = 'X';
-		while (cfg[i] != 0) {
+		//ports[id].type = 'X';
+		//while (cfg[i] != 0) {
+                while (cfg[i] >='a') {
 			switch (cfg[i]) {
-			case 0:
+                        
+                        case 0:
 			case 'x':
 			case 'X':
+                                auxType = 'X';
+				auxVisi = 'C'; // Visible en la segunda pantalla.
+                                break;
 			case '-':
-				// Ignore (default=disabled)
+                                auxType = 'X';
+				auxVisi = 'H'; // Ocultamos???
 				break;
+                        case 'h':
+                              auxVisi = 'H';
+                              break;
+                        
+                        case 's':
+                              auxVisi = 'M';
+                              break;
+                        
+                        case 'S':
+                              auxVisi = 'C';
+                              break;
+                              
 
 			case 'p':
 				pulseport = id;
-				ports[id].type = 'P';
+				//ports[id].type = 'P';
+                                auxType = 'P';
 				break;
 
 			case 'A':
@@ -1022,27 +1042,32 @@ boolean configPort(char id, char *cfg, char *name)
 				break;
 
 			case 'd':
-				ports[id].type = 'D';
+				//ports[id].type = 'D';
+                                auxType = 'D';
 				break;
 
 			case 'a':
-				ports[id].type = 'A';
+				//ports[id].type = 'A';
+                                auxType = 'A';
 				break;
 
 			case 'i':
-				if (ports[id].type == 'D')
-					ports[id].type = 'd';
-				if (ports[id].type == 'A')
-					ports[id].type = 'a';
-				if (ports[id].type == 'P')
-					ports[id].type = 'p';
-				break;
+				if (auxType == 'D')
+					auxType = 'd';
+				if (auxType == 'A')
+					auxType = 'a';
+				if (auxType == 'P')
+					auxType = 'p';
+				break; 
 
 			case 'o':
 				break;
 
-#ifdef MODULE_DEBUG
+
 			default:
+                                print_error(output,22);
+                                return false;
+#ifdef MODULE_DEBUG                                
 				if (debug == 1)
 					writef(output,
 					       "%c:invalidcfg(%d) cfg:%s \n",
@@ -1051,11 +1076,19 @@ boolean configPort(char id, char *cfg, char *name)
 			}
 			i++;
 		}
-                eeprom_set_byte(offsetSlot + EMPOSTYPEPORT, ports[id].type);
+                if (auxType != '?'){
+                  eeprom_set_byte(offsetSlot + EMPOSTYPEPORT, auxType);
+                  ports[id].type=auxType;
+                }
+                  
+                if (auxVisi != '?')eeprom_set_byte(offsetSlot + EMPOSVISIBILITY, auxVisi);
+                
+               
+                
         }
 	debug_write(id);
 	debug_write(cfg);
-	debug_write(ports[id].type);
+	debug_write(auxType);
         if (name != NULL){
            for (i = 0; i < 5; i++){
              if (ISVALIDCHAR(name[i]))eeprom_set_byte(offsetSlot + i, name[i]);
@@ -1083,45 +1116,38 @@ void loadDefaultConfig()
 	}
 	
 	// Ports
-	configPort(2, (char *)"di", "di002");
-	configPort(3, (char *)"di", "di003");
+	configPort(2, (char *)"dis", "di002");
+	configPort(3, (char *)"dis", "di003");
 	
-	configPort(5, (char *)"di", "di005");
-	configPort(6, (char *)"do", "do006");
-	configPort(7, (char *)"do", "do007");
-	configPort(8, (char *)"do", "do008");
-	configPort(9, (char *)"do", "do009");
-
-	// Disable Ethernet and SD
-	configPort(4,  (char *)"-", "xxx01");// SD Select
-	configPort(10, (char *)"-", "xxx02");
-	configPort(11, (char *)"-", "xxx03");
-	configPort(12, (char *)"-", "xxx04");
-	configPort(13, (char *)"-", "xxx05");
+	configPort(5, (char *)"dis", "di005");
+	configPort(6, (char *)"dos", "do006");
+	configPort(7, (char *)"dos", "do007");
+	configPort(8, (char *)"dos", "do008");
+	configPort(9, (char *)"dos", "do009");
+        
+	// Disable Ethernet and SD 
+	configPort(4,  (char *)"-h", "xxx01");  // SD Select
+	configPort(10, (char *)"-h", "xxx02");  
+	configPort(11, (char *)"-h", "xxx03");
+	configPort(12, (char *)"-h", "xxx04");
+	configPort(13, (char *)"-h", "xxx05");
 
 	// Disable last 4 ADC
-	configPort(14, (char *)"ai", "ai000");
-	configPort(15, (char *)"ai", "ai001");
-	configPort(16, (char *)"-",  "ai002");
-	configPort(17, (char *)"-",  "ai003");
-	configPort(18, (char *)"-",  "ai004");
-	configPort(19, (char *)"-",  "ai005");
+	configPort(14, (char *)"ais", "ai000");
+	configPort(15, (char *)"ais", "ai001");
+	configPort(16, (char *)"xS",  "ai002");
+	configPort(17, (char *)"xS",  "ai003");
+	configPort(18, (char *)"xS",  "ai004");
+	configPort(19, (char *)"xS",  "ai005");
 	
 	// Virtuals ports
 	for (i=0; i<MAXLINKS; i++){
 		itoan(i, pname, 6);
 		pname[0] = 'v';
-		configPort(i + (DIGITALPORTS + ANALOGPORTS), (char*)"-", pname);         
+                pname[1] = 't';
+		configPort(i + (DIGITALPORTS + ANALOGPORTS), (char*)"xS", pname);         
 	}
 	
-	
-	/*
-	// Virtual ports
-	configPort(20, (char *)"-", "vt000");
-	configPort(21, (char *)"-", "vt001");
-	configPort(22, (char *)"-", "vt002");
-	configPort(23, (char *)"-", "vt003");
-	*/
 
 #ifdef ENABLE_NETWORKING
 	// Default network configuration
@@ -1150,36 +1176,29 @@ boolean readFromSerialPort(char *ins)
 		b = Serial.read();
 		switch (b) {
 		case -1:	// Null char
-		case 0:	// Null char
+		case 0:	        // Null char
 		case 10:	// LF: No deberia suceder, salvo en consola emulada
 			break;
+
 		case 13:	// Final de linea
 			output = SERIALPORT;
-			//processInstruction(instruction);
 			i = 0;
- 			return true;
+                        if (echo == 1) Serial.println();
+ 			return true; 
 			break;
-		case 8:	// Backspace
-			if (i > 0) {
-				i--;
-				if (echo == 1)
-					Serial.print(b);
-			}
+		case 8:	        // Backspace
+			if (i > 0) i--;				
 			ins[i] = 0;
 			break;
 		default:
 			if (i < BUFFERSIZE) {
-				//if (echo == 1)
-				//Serial.print(b);
+				if (echo == 1) Serial.print(char(b));
 				ins[i] = b;
 				i++;
 				ins[i] = 0;
-			} else {
-//				output = SERIALPORT;
-//				writef(output, flstr(strfmt_error2),
-//				       ERROR, bname, 2);
-				print_error(output,2);
-			}
+			} 
+                        else 
+                          print_error(output,2);			
 		}
 	}
 	return false;
@@ -1286,8 +1305,7 @@ void listLinks()
 	char pname1[6];
 	char pname2[6];
 	char buffer[20];
-	//char type = ' ';
-
+	
 	for (i = 0; i < MAXLINKS; i++) {
 		// Los "slots" vacÃ­os se almacenan como enlace "0-0"
 		if ((links[i][0] != 0) && (links[i][1] != 0)) {
@@ -1306,48 +1324,116 @@ void listLinks()
 //		writef(output, "W:no links\n");
 }
 
+/** Escribe en el buffer apuntado el valor actual del puerto.
+    
+    Entrada:  id del puerto.
+              puntero a array de salida.              
+    Salida:   Valor segun tipo, on, off, valor analogico con signo y decimal simulado.
+*/
+void get_state(byte id, char *buffer){
+       
+        int i;
+	if (ISDIGITAL(id)) {  			
+			if (ports[id].value != LOW)
+				strlcpy(buffer, ON, 3);
+			else
+				strlcpy(buffer, OFF, 4);
+		}
+	else if (ISANALOG(id)) {
+                i=ports[id].value;
+        	if (i<0){
+        		strlcpy(buffer, "-", 2);
+        		i= ~i ;
+        	}
+        	else {
+                  strlcpy(buffer, "+", 2);		
+		  
+                }
+                strlcat(buffer , itoan(i, &buffer[1], 5), 5);
+                strlcat(buffer , ".0000", 11);
+	}
+        else strlcpy(buffer, "", sizeof(buffer));
+}
+
+
+/** Escribe en el buffer el tipo de puerto con parametros extendidos.
+    
+    Entrada:  id del puerto.
+              puntero a array de salida.              
+    Salida:   Tipo de puerto, pestaña donde es visible y notag simulado.
+*/
+void get_type(byte id, char *buffer ){        
+	
+	buffer[1]=ISINPUT(id)?'I':'O';
+	if 
+		(ISDIGITAL(id)) buffer[0] = 'D';
+	else if 
+		(ISANALOG(id)) buffer[0] = 'A';
+	else{
+		buffer[0] = 'X';
+		buffer[1] = 'X';
+	}
+	
+	if ISVIRTUAL(id){
+                if (buffer[0] == 'X') buffer[0] = 'V';
+                else buffer[1] = 'V';		
+	}
+        buffer[2]=eeprom_get_byte(EMPORTSLOT * id + EMPOSVISIBILITY);
+        buffer[3]='_';          // Simulación respuesta ODControl.
+        buffer[4]='\n';        	
+}
+
+/// Imprime la lista de puerto compactada.
+void listCompact(){
+	char buffer[41];
+	char auxBuf[11];
+	//ai000:AIH_:-0000.2437:00000|00001::00255
+	//0123456789012345789012345678901234567890
+	byte i;
+	byte ini=0;
+	byte fin=24;
+	for (i=ini ; i<fin; i++){
+		eeprom_get_str(auxBuf, i*EMPORTSLOT, 6);
+		strlcpy(buffer, auxBuf, sizeof(buffer));
+                strlcat(buffer, ":", sizeof(buffer));
+                get_type(i, auxBuf);
+                strncat(buffer, auxBuf ,4);
+                strlcat(buffer, ":", sizeof(buffer));
+                get_state(i, auxBuf);
+                strlcat(buffer, auxBuf, sizeof(buffer));
+                strlcat(buffer, "\r\n", sizeof(buffer));
+            	writef(output, buffer);	
+	}
+	
+	
+}
+
 // {{{ listPorts(): Print the list of ports, including type and value
 void listPorts()
 {
 	byte i;
-//	int j;
-	char buffer[20];
-	char type[6];
-	char value[6];
-	char pname[6] = "";
-
-	for(i=0;i<5;i++) type[i]='-';
-	type[5]=0;
-	if(output<HTTP) writef(output, "N:cmd ls    \n");
-	for(i=0;i<TOTALPORTS;i++) {
-		value[0] = 0;
-		eeprom_get_str(pname, i*EMPORTSLOT, 6);
-		pname[sizeof(pname) - 1] = 0;
-
-		type[1] = ISINPUT(i)?'I':'O';
-
-		if (ISDIGITAL(i)) {
-  			type[0]='D';
-			if (ports[i].value != LOW)
-				strlcpy(value, ON, sizeof(value));
-			else
-				strlcpy(value, OFF, sizeof(value));
-		}
-
-		else if (ISANALOG(i)) {
-  			type[0]='A';
-			itoan(ports[i].value, value, sizeof(value));
-
-		} else {
-			type[0]='X';
-			type[1]='-';
-		}
-
+        byte ini=0;
+	byte fin=24;       //TOTALPORTS   
+	char buffer[30];
+        char auxBuf[11];
+	
+	for(i=ini;i<fin;i++) {
+		
+                get_type(i, auxBuf);
+                strlcpy(buffer, auxBuf , 3);
+                strlcat(buffer, ":", sizeof(buffer));
+                eeprom_get_str(auxBuf, i*EMPORTSLOT, 6);
+                strlcat(buffer, auxBuf, sizeof(buffer));
+                strlcat(buffer, ":", sizeof(buffer));
+                get_state(i, auxBuf);
+                strlcat(buffer, auxBuf, sizeof(buffer));
+                strlcat(buffer, "\r\n", sizeof(buffer));               
+		
 		if (output == HTTP) {
 			//http_listPortsLine(pname, type, value);
-		} else
-			writef(output, flstrn(strfmt_std,buffer,20), INFO, bname, pname,
-			       type, value);
+		} 
+		else
+                        writef(output, buffer); 
 	}
 
 }
@@ -1628,7 +1714,7 @@ void printMap()
 			p = i * 20 + j;
 			b = eeprom_get_byte(p);
 			if ((b > 32) && (b < 127))
-				Serial.print(b);
+				Serial.print(char( b));
 			else
 				Serial.print(".");
 			// Cada 5 Bytes un separador
@@ -1676,8 +1762,6 @@ boolean processInstruction(const char *cmd)
 	 cfg portn di
 	 lbl portn alias
 	 lnk portn portm
-	 wmx portn value
-	 wmn portn value
 	 set portn value
 	 */
 	GETARG1(cmd, arg1);
@@ -1698,6 +1782,10 @@ boolean processInstruction(const char *cmd)
 
 	case CMD_LST:		/// - lst: List configured ports
 		listPorts();
+		break;
+
+        case CMD_LSC:		/// - List compacto.
+		listCompact();
 		break;
 
 	case CMD_ECH:		/// - echo: (de)activates local echo
@@ -1925,6 +2013,7 @@ void setup()
 
 	Serial.print("D:mem ");
 	Serial.println(freeMemory());
+        
 //Serial.println(freeMalloc());
 #ifdef ENABLE_NETWORKING
 	ip[0]=eeprom_get_byte(EMNETCFOFFSET+7);
@@ -1938,10 +2027,6 @@ void setup()
 	Webserver.begin();
 #endif
 	Serial.println("D:OK");
-
-	// Iniciamos los puertos
-//	Serial.print("D:mem ");
-//	Serial.println(freeMemory());
 	resetPorts();
 }
 
@@ -2265,8 +2350,6 @@ bool readFromTelnetPort(char *instruction)
 
 void sendODControlAnnouncement(){
 	char msg[50];
-	char ipbuff[6];
-//	byte remoteip[4];
 	IPAddress broadcast(255, 255, 255, 255);
 
 	strlcpy(msg, "ODC01:" UID, sizeof(msg));
@@ -2281,44 +2364,17 @@ void sendODControlAnnouncement(){
 
 void sendODControlUpdate(int i){
 	char msg[50];
-	char ipbuff[6];
-	char pname[6] = "";
-
+	char auxBuf[11];
 	IPAddress broadcast(255, 255, 255, 255);
 
-	strlcpy(msg, "ODC01:" UID, sizeof(msg));
-	msg[18]=' ';
-	if (ISDIGITAL(i)) msg[19]='D';
-	else msg[19]='A';
-
-	if (ISINPUT(i)) msg[20]='I';
-	else msg[20]='O';
-
-        msg[21]=':';
-        msg[22]=0;
-
-	eeprom_get_str(pname, i*EMPORTSLOT, 6);
-	strlcat(msg,pname,sizeof(msg));
-
-        msg[27]=':';
-        if (ISDIGITAL(i)){
-		if (ports[i].value == LOW ) {
-			msg[28]='O';
-			msg[29]='F';
-			msg[30]='F';
-			msg[31]=0;
-		} else {
-			msg[28]='O';
-			msg[29]='N';
-			msg[30]=' ';
-			msg[31]=0;
-		}
-	} else {
-               itoan(ports[i].value, &msg[28], 4);
-               msg[31]=0;
-
-  	}
-
+	strlcpy(msg, "ODC01:" UID , sizeof(msg));
+	strlcat(msg, " ", sizeof(msg));
+        get_type(i, auxBuf);
+        strncat(msg,auxBuf ,2);
+        strlcat(msg, ":", sizeof(msg));
+        get_state(i, auxBuf);
+        strlcat(msg, auxBuf, sizeof(msg));
+     
 	Serial.println(msg);
         Udp.beginPacket(broadcast, UDP_PORT);
 	Udp.write(msg);
