@@ -368,13 +368,13 @@ prog_char str_empty[] PROGMEM = "empty";
 
 #ifdef ENABLE_NETWORKING
 prog_char str_http_header_1[] PROGMEM = "<html>\n<head><title>Domino</title><meta name=";
-prog_char str_http_header_2[] PROGMEM = "viewport content='width=320'/><link type='text";
-prog_char str_http_header_3[] PROGMEM = "/css' href='http://cloud.opendomo.com/odctp/ar.";
-prog_char str_http_header_4[] PROGMEM = "css' /><script src='http://cloud.opendomo.com/o";
-prog_char str_http_header_5[] PROGMEM = "dctp/global1.6.3.js'></script></head><body><div";
-prog_char str_http_header_6[] PROGMEM = "id=main><div id=h></div></div><ul id=frm class=lst>";
+prog_char str_http_header_2[] PROGMEM = "viewport content='width=320'/><link rel=styles";
+prog_char str_http_header_3[] PROGMEM = "heet type='text/css' href='http://cloud.opendo";
+prog_char str_http_header_4[] PROGMEM = "mo.com/odctp/ar.css' /><script src='http://cl";
+prog_char str_http_header_5[] PROGMEM = "oud.opendomo.com/odctp/ar.js'></script></head>";
+prog_char str_http_header_6[] PROGMEM = "<body><div id=header></div><ul id=frm class=lst>";
 
-prog_char str_http_footer_1[] PROGMEM = "</ul><a id=f href=http://opendomo.com>v";
+prog_char str_http_footer_1[] PROGMEM = "</ul><a id=ftr href=http://opendomo.com>v";
 prog_char str_http_footer_2[] PROGMEM = " </a></body></html>";
 #endif
 
