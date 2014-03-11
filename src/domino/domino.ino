@@ -932,7 +932,6 @@ int saveBoardName(char *name)
 int loadConfig()
 {
 	unsigned char x;
-//	int y;
 	short dir;
 
 	// Read the board's name (and set a default one if missing)
@@ -1005,7 +1004,8 @@ boolean configPort(char id, char *cfg, char *name)
 	byte i = 0;
 	if (cfg != NULL) {
 		//ports[id].type = 'X';
-		while (cfg[i] != 0) {
+		//while (cfg[i] != 0) {
+                while (cfg[i] >='a') {
 			switch (cfg[i]) {
                         
                         case 0:
@@ -1176,36 +1176,29 @@ boolean readFromSerialPort(char *ins)
 		b = Serial.read();
 		switch (b) {
 		case -1:	// Null char
-		case 0:	// Null char
+		case 0:	        // Null char
 		case 10:	// LF: No deberia suceder, salvo en consola emulada
 			break;
+
 		case 13:	// Final de linea
 			output = SERIALPORT;
-			//processInstruction(instruction);
 			i = 0;
- 			return true;
+                        if (echo == 1) Serial.println();
+ 			return true; 
 			break;
-		case 8:	// Backspace
-			if (i > 0) {
-				i--;
-				if (echo == 1)
-					Serial.print(b);
-			}
+		case 8:	        // Backspace
+			if (i > 0) i--;				
 			ins[i] = 0;
 			break;
 		default:
 			if (i < BUFFERSIZE) {
-				//if (echo == 1)
-				//Serial.print(b);
+				if (echo == 1) Serial.print(char(b));
 				ins[i] = b;
 				i++;
 				ins[i] = 0;
-			} else {
-//				output = SERIALPORT;
-//				writef(output, flstr(strfmt_error2),
-//				       ERROR, bname, 2);
-				print_error(output,2);
-			}
+			} 
+                        else 
+                          print_error(output,2);			
 		}
 	}
 	return false;
@@ -1769,8 +1762,6 @@ boolean processInstruction(const char *cmd)
 	 cfg portn di
 	 lbl portn alias
 	 lnk portn portm
-	 wmx portn value
-	 wmn portn value
 	 set portn value
 	 */
 	GETARG1(cmd, arg1);
@@ -2022,6 +2013,7 @@ void setup()
 
 	Serial.print("D:mem ");
 	Serial.println(freeMemory());
+        
 //Serial.println(freeMalloc());
 #ifdef ENABLE_NETWORKING
 	ip[0]=eeprom_get_byte(EMNETCFOFFSET+7);
@@ -2035,10 +2027,6 @@ void setup()
 	Webserver.begin();
 #endif
 	Serial.println("D:OK");
-
-	// Iniciamos los puertos
-//	Serial.print("D:mem ");
-//	Serial.println(freeMemory());
 	resetPorts();
 }
 
@@ -2362,8 +2350,6 @@ bool readFromTelnetPort(char *instruction)
 
 void sendODControlAnnouncement(){
 	char msg[50];
-	char ipbuff[6];
-//	byte remoteip[4];
 	IPAddress broadcast(255, 255, 255, 255);
 
 	strlcpy(msg, "ODC01:" UID, sizeof(msg));
@@ -2378,44 +2364,17 @@ void sendODControlAnnouncement(){
 
 void sendODControlUpdate(int i){
 	char msg[50];
-	char ipbuff[6];
-	char pname[6] = "";
-
+	char auxBuf[11];
 	IPAddress broadcast(255, 255, 255, 255);
 
-	strlcpy(msg, "ODC01:" UID, sizeof(msg));
-	msg[18]=' ';
-	if (ISDIGITAL(i)) msg[19]='D';
-	else msg[19]='A';
-
-	if (ISINPUT(i)) msg[20]='I';
-	else msg[20]='O';
-
-        msg[21]=':';
-        msg[22]=0;
-
-	eeprom_get_str(pname, i*EMPORTSLOT, 6);
-	strlcat(msg,pname,sizeof(msg));
-
-        msg[27]=':';
-        if (ISDIGITAL(i)){
-		if (ports[i].value == LOW ) {
-			msg[28]='O';
-			msg[29]='F';
-			msg[30]='F';
-			msg[31]=0;
-		} else {
-			msg[28]='O';
-			msg[29]='N';
-			msg[30]=' ';
-			msg[31]=0;
-		}
-	} else {
-               itoan(ports[i].value, &msg[28], 4);
-               msg[31]=0;
-
-  	}
-
+	strlcpy(msg, "ODC01:" UID , sizeof(msg));
+	strlcat(msg, " ", sizeof(msg));
+        get_type(i, auxBuf);
+        strncat(msg,auxBuf ,2);
+        strlcat(msg, ":", sizeof(msg));
+        get_state(i, auxBuf);
+        strlcat(msg, auxBuf, sizeof(msg));
+     
 	Serial.println(msg);
         Udp.beginPacket(broadcast, UDP_PORT);
 	Udp.write(msg);
