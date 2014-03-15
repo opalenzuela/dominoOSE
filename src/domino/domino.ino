@@ -267,8 +267,8 @@ enum outputChannel {
 #define DIGITAL 68		//!< Alias for DIGITAL --+----------------
 #define IN      73		//!< Alias for INPUT     !   a       d
 #define OUT     79		//!< Alias for OUTPUT    !   A       D
-#define OFF      0		//!< Alias for OFF
-#define ON    HIGH		//!< Alias for ON
+//#define OFF      0		//!< Alias for OFF
+//#define ON    HIGH		//!< Alias for ON
 
 #define TIMEPULSE 5
 ///! Event types
@@ -340,42 +340,42 @@ char bname[6];
 
 
 // {{{ Flash Strings
-prog_char strfmt_std_num[] PROGMEM = "%c:%s.%s %s %d\n"; ///< Standard string format for numbers
-prog_char strfmt_std[] PROGMEM = "%c:%s.%s %s %s\n"; ///< Standard string format
-prog_char strfmt_lnk[] PROGMEM = "%c:%s %s-%s %c\n"; ///< Standard string format for links
-prog_char strfmt_cmdok[] PROGMEM = "N:board cmdok";
-prog_char strfmt_error[] PROGMEM = "E:board error ";
+const char strfmt_std_num[] PROGMEM = "%c:%s.%s %s %d\n"; ///< Standard string format for numbers
+const char strfmt_std[] PROGMEM = "%c:%s.%s %s %s\n"; ///< Standard string format
+const char strfmt_lnk[] PROGMEM = "%c:%s %s-%s %c\n"; ///< Standard string format for links
+const char strfmt_cmdok[] PROGMEM = "N:board cmdok";
+const char strfmt_error[] PROGMEM = "E:board error ";
 
 #define ON "ON"
 #define OFF "OFF"
-PROGMEM  char type_link[]  = { 'd', 'i','p', 'c', 'r', 't','s','n','N','o','f','l', 0x00};
+const char type_link[] PROGMEM = { 'd', 'i','p', 'c', 'r', 't','s','n','N','o','f','l', 0x00};
 
 // {{{
-prog_char str_upsec[] PROGMEM = "upsec";
-prog_char str_upday[] PROGMEM = "upday";
+const char str_upsec[] PROGMEM = "upsec";
+const char str_upday[] PROGMEM = "upday";
 
-prog_char str_versn[] PROGMEM = "versn";
-prog_char str_bdate[] PROGMEM = "bdate";
-prog_char str_build[] PROGMEM = "build";
+const char str_versn[] PROGMEM = "versn";
+const char str_bdate[] PROGMEM = "bdate";
+const char str_build[] PROGMEM = "build";
 
-prog_char str_mfree[] PROGMEM = "mfree";
-prog_char str_mallo[] PROGMEM = "mallo";
-prog_char str_mused[] PROGMEM = "mused";
+const char str_mfree[] PROGMEM = "mfree";
+const char str_mallo[] PROGMEM = "mallo";
+const char str_mused[] PROGMEM = "mused";
 
-prog_char str_value[] PROGMEM = "value";
-prog_char str_empty[] PROGMEM = "empty";
+const char str_value[] PROGMEM = "value";
+const char str_empty[] PROGMEM = "empty";
 // }}}
 
 #ifdef ENABLE_NETWORKING
-prog_char str_http_header_1[] PROGMEM = "<html>\n<head><title>Domino</title><meta name=";
-prog_char str_http_header_2[] PROGMEM = "viewport content='width=320'/><link rel=styles";
-prog_char str_http_header_3[] PROGMEM = "heet type='text/css' href='http://cloud.opendo";
-prog_char str_http_header_4[] PROGMEM = "mo.com/odctp/ar.css' /><script src='http://cl";
-prog_char str_http_header_5[] PROGMEM = "oud.opendomo.com/odctp/ar.js'></script></head>";
-prog_char str_http_header_6[] PROGMEM = "<body><div id=header></div><ul id=frm class=lst>";
+const char str_http_header_1[] PROGMEM = "<html>\n<head><title>Domino</title><meta name=";
+const char str_http_header_2[] PROGMEM = "viewport content='width=320'/><link rel=styles";
+const char str_http_header_3[] PROGMEM = "heet type='text/css' href='http://cloud.opendo";
+const char str_http_header_4[] PROGMEM = "mo.com/odctp/ar.css' /><script src='http://cl";
+const char str_http_header_5[] PROGMEM = "oud.opendomo.com/odctp/ar.js'></script></head>";
+const char str_http_header_6[] PROGMEM = "<body><div id=header></div><ul id=frm class=lst>";
 
-prog_char str_http_footer_1[] PROGMEM = "</ul><a id=ftr href=http://opendomo.com>v";
-prog_char str_http_footer_2[] PROGMEM = " </a></body></html>";
+const char str_http_footer_1[] PROGMEM = "</ul><a id=ftr href=http://opendomo.com>v";
+const char str_http_footer_2[] PROGMEM = " </a></body></html>";
 #endif
 
 byte h2d(char a, char b) __attribute__((noinline));
@@ -384,7 +384,7 @@ void print_cmdok(byte out) __attribute__((noinline));
 boolean setPortValue(char id, int value) __attribute__((noinline));
 boolean processInstruction(const char *cmd) __attribute__((noinline));
 void writef(byte out, const char* fmt, ...);
-//char *flstr(prog_char *flash_str) __attribute__((noinline));
+//char *flstr(const char *flash_str) __attribute__((noinline));
 char * itoan(int val, char *result, byte len);
 #ifdef ENABLE_NETWORKING
 int ethSetIP(byte ipb1, byte ipb2, byte ipb3, byte ipb4);
@@ -2116,7 +2116,7 @@ void writef(byte out, const char *fmt, ...)
 
 //{{{ flstrn() copies a string from flash to a buffer
 // The function returns a pointer to the buffer or NULL if failed
-char *flstrn(prog_char *flash_str, char *buffer, byte len){
+char *flstrn(const char *flash_str, char *buffer, byte len){
 	byte i=0;
 	char c;
 	buffer[0]=0;
