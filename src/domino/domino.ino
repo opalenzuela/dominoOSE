@@ -39,7 +39,7 @@
 //define para habilitar la funcionalidad de red
 #define ENABLE_NETWORKING
 
-#define UID "123456789012"
+#define UID "12345678901A"
 
 //! MAC address: Write here your own MAC
 byte mac[] = { 0xBE, 0xAB, 0xEA, 0xEF, 0xFE, 0xED };
@@ -267,8 +267,8 @@ enum outputChannel {
 #define DIGITAL 68		//!< Alias for DIGITAL --+----------------
 #define IN      73		//!< Alias for INPUT     !   a       d
 #define OUT     79		//!< Alias for OUTPUT    !   A       D
-#define OFF      0		//!< Alias for OFF
-#define ON    HIGH		//!< Alias for ON
+//#define OFF      0		//!< Alias for OFF
+//#define ON    HIGH		//!< Alias for ON
 
 #define TIMEPULSE 5
 ///! Event types
@@ -340,42 +340,42 @@ char bname[6];
 
 
 // {{{ Flash Strings
-prog_char strfmt_std_num[] PROGMEM = "%c:%s.%s %s %d\n"; ///< Standard string format for numbers
-prog_char strfmt_std[] PROGMEM = "%c:%s.%s %s %s\n"; ///< Standard string format
-prog_char strfmt_lnk[] PROGMEM = "%c:%s %s-%s %c\n"; ///< Standard string format for links
-prog_char strfmt_cmdok[] PROGMEM = "N:board cmdok";
-prog_char strfmt_error[] PROGMEM = "E:board error ";
+const char strfmt_std_num[] PROGMEM = "%c:%s.%s %s %d\n"; ///< Standard string format for numbers
+const char strfmt_std[] PROGMEM = "%c:%s.%s %s %s\n"; ///< Standard string format
+const char strfmt_lnk[] PROGMEM = "%c:%s %s-%s %c\n"; ///< Standard string format for links
+const char strfmt_cmdok[] PROGMEM = "N:board cmdok";
+const char strfmt_error[] PROGMEM = "E:board error ";
 
 #define ON "ON"
 #define OFF "OFF"
-PROGMEM  char type_link[]  = { 'd', 'i','p', 'c', 'r', 't','s','n','N','o','f','l', 0x00};
+const char type_link[] PROGMEM = { 'd', 'i','p', 'c', 'r', 't','s','n','N','o','f','l', 0x00};
 
 // {{{
-prog_char str_upsec[] PROGMEM = "upsec";
-prog_char str_upday[] PROGMEM = "upday";
+const char str_upsec[] PROGMEM = "upsec";
+const char str_upday[] PROGMEM = "upday";
 
-prog_char str_versn[] PROGMEM = "versn";
-prog_char str_bdate[] PROGMEM = "bdate";
-prog_char str_build[] PROGMEM = "build";
+const char str_versn[] PROGMEM = "versn";
+const char str_bdate[] PROGMEM = "bdate";
+const char str_build[] PROGMEM = "build";
 
-prog_char str_mfree[] PROGMEM = "mfree";
-prog_char str_mallo[] PROGMEM = "mallo";
-prog_char str_mused[] PROGMEM = "mused";
+const char str_mfree[] PROGMEM = "mfree";
+const char str_mallo[] PROGMEM = "mallo";
+const char str_mused[] PROGMEM = "mused";
 
-prog_char str_value[] PROGMEM = "value";
-prog_char str_empty[] PROGMEM = "empty";
+const char str_value[] PROGMEM = "value";
+const char str_empty[] PROGMEM = "empty";
 // }}}
 
 #ifdef ENABLE_NETWORKING
-prog_char str_http_header_1[] PROGMEM = "<html>\n<head><title>Domino</title><meta name=";
-prog_char str_http_header_2[] PROGMEM = "viewport content='width=320'/><link rel=styles";
-prog_char str_http_header_3[] PROGMEM = "heet type='text/css' href='http://cloud.opendo";
-prog_char str_http_header_4[] PROGMEM = "mo.com/odctp/ar.css' /><script src='http://cl";
-prog_char str_http_header_5[] PROGMEM = "oud.opendomo.com/odctp/ar.js'></script></head>";
-prog_char str_http_header_6[] PROGMEM = "<body><div id=header></div><ul id=frm class=lst>";
+const char str_http_header_1[] PROGMEM = "<html>\n<head><title>Domino</title><meta name=";
+const char str_http_header_2[] PROGMEM = "viewport content='width=320'/><link rel=styles";
+const char str_http_header_3[] PROGMEM = "heet type='text/css' href='http://cloud.opendo";
+const char str_http_header_4[] PROGMEM = "mo.com/odctp/ar.css' /><script src='http://cl";
+const char str_http_header_5[] PROGMEM = "oud.opendomo.com/odctp/ar.js'></script></head>";
+const char str_http_header_6[] PROGMEM = "<body><div id=header></div><ul id=frm class=lst>";
 
-prog_char str_http_footer_1[] PROGMEM = "</ul><a id=ftr href=http://opendomo.com>v";
-prog_char str_http_footer_2[] PROGMEM = " </a></body></html>";
+const char str_http_footer_1[] PROGMEM = "</ul><a id=ftr href=http://opendomo.com>v";
+const char str_http_footer_2[] PROGMEM = " </a></body></html>";
 #endif
 
 byte h2d(char a, char b) __attribute__((noinline));
@@ -384,13 +384,14 @@ void print_cmdok(byte out) __attribute__((noinline));
 boolean setPortValue(char id, int value) __attribute__((noinline));
 boolean processInstruction(const char *cmd) __attribute__((noinline));
 void writef(byte out, const char* fmt, ...);
-//char *flstr(prog_char *flash_str) __attribute__((noinline));
+//char *flstr(const char *flash_str) __attribute__((noinline));
 char * itoan(int val, char *result, byte len);
 #ifdef ENABLE_NETWORKING
 int ethSetIP(byte ipb1, byte ipb2, byte ipb3, byte ipb4);
 int ethSetMAC(byte macb3, byte macb4, byte macb5, byte macb6);
 int ethSetGW(byte ipb1, byte ipb2, byte ipb3, byte ipb4);
 int ethSetNetmask(byte ipb1, byte ipb2, byte ipb3, byte ipb4);
+void sendODControlHead();
 void sendODControlAnnouncement();
 void sendODControlUpdate(int pnum);
 
@@ -403,7 +404,7 @@ EthernetUDP Udp;
 #endif
 
 char instruction[BUFFERSIZE];	///< Command received
-//byte inspos = 0;		///< Command byte position
+
 bool echo = false;		///< Flag that defines if the local echo is activated
 bool debug = false;		///< Flag that defines if the board operates in debug mode
 byte alarmport = 0;		///< Alarm port configured (0 if none)
@@ -462,12 +463,13 @@ void print_error(byte out, int code)
  	flstrn(strfmt_error,buffer,16);
 	switch (out)
 	{
-	case TELNET:
 #ifdef ENABLE_NETWORKING
+	case TELNET:
+
 		Telnet.print(buffer);
 		Telnet.println(code);
-#endif
 		break;
+#endif
 	case SERIALPORT:
 		Serial.print(buffer);
 		Serial.println(code);
@@ -512,9 +514,7 @@ int freeMalloc() {
   int size = 2000; // Use 2048 with ATmega328
   byte *buf;
 
-  while ((buf = (byte *) malloc(--size)) == NULL)
-    ;
-
+  while ((buf = (byte *) malloc(--size)) == NULL);
   free(buf);
 
   return size;
@@ -527,6 +527,7 @@ void printVersion()
 	writef(output, "%s versn %s %s %s\n", bname, VERSION, __TIME__, __DATE__);
 }
 // }}}
+
 void printUptime(){
 	char buffer[10];
 	char format[16];
@@ -534,6 +535,7 @@ void printUptime(){
 	writef(output, format, INFO, bname, flstrn(str_upsec,buffer,10), "", seconds);
 	writef(output, format, INFO, bname, flstrn(str_upday,buffer,10), "", days);
 }
+
 void printMemory(){
 	char buffer[10];
 	char format[16];
@@ -858,26 +860,30 @@ boolean setPortValue(char id, int value)
 		return false;
 	}
 
-	else if (ISDIGITAL(id)) {
+	if (ISDIGITAL(id)) {
 		digitalWrite(id, value);
-		ports[id].value = value;
 		if (output<HTTP)
 			writef(output, flstrn(strfmt_std,buffer,20), NOTICE, bname, pname, "value", value?ON:OFF,"");
 	} else if (ISANALOG(id)) {
-		analogWrite(id, value);
-		ports[id].value = value;
+		analogWrite(id, value);		
 		if (output<HTTP)
 			writef(output, flstrn(strfmt_std_num,buffer,20), NOTICE, bname, pname, "value", value);
-/*	} else if (ISVIRTUAL(i)) {
-		triggerPortChange(i, LOW, HIGH); */
 	} else if (ISDISABLED(id)) {
 		// Nothing. No warning neither
 	} else {
 		print_error(output,103);
 		return false;
 	}
-	//print_cmdok(output);
-	//writef(output, flstr(strfmt_cmdok), NOTICE, bname, pname);
+
+        if (ISVIRTUAL(id)){
+                ports[id].value = value;                
+        }
+#ifdef ENABLE_NETWORKING
+        sendODControlHead();
+        sendODControlUpdate(id);
+        Udp.endPacket();         
+#endif
+	
 	return true;
 }
 
@@ -1003,9 +1009,8 @@ boolean configPort(char id, char *cfg, char *name)
 
 	byte i = 0;
 	if (cfg != NULL) {
-		//ports[id].type = 'X';
-		//while (cfg[i] != 0) {
-                while (cfg[i] >='a') {
+		
+                while (cfg[i] >='-') {
 			switch (cfg[i]) {
                         
                         case 0:
@@ -1033,8 +1038,7 @@ boolean configPort(char id, char *cfg, char *name)
 
 			case 'p':
 				pulseport = id;
-				//ports[id].type = 'P';
-                                auxType = 'P';
+				auxType = 'P';
 				break;
 
 			case 'A':
@@ -1042,13 +1046,11 @@ boolean configPort(char id, char *cfg, char *name)
 				break;
 
 			case 'd':
-				//ports[id].type = 'D';
-                                auxType = 'D';
+				auxType = 'D';
 				break;
 
 			case 'a':
-				//ports[id].type = 'A';
-                                auxType = 'A';
+				auxType = 'A';
 				break;
 
 			case 'i':
@@ -1126,26 +1128,28 @@ void loadDefaultConfig()
 	configPort(9, (char *)"dos", "do009");
         
 	// Disable Ethernet and SD 
-	configPort(4,  (char *)"-h", "xxx01");  // SD Select
-	configPort(10, (char *)"-h", "xxx02");  
-	configPort(11, (char *)"-h", "xxx03");
-	configPort(12, (char *)"-h", "xxx04");
-	configPort(13, (char *)"-h", "xxx05");
+        configPort(0,  (char *)"-", "xxxrx");  // SD Select
+        configPort(1,  (char *)"-", "xxxtx");  // SD Select
+	configPort(4,  (char *)"-", "xxx01");  // SD Select
+	configPort(10, (char *)"-", "xxx02");  
+	configPort(11, (char *)"-", "xxx03");
+	configPort(12, (char *)"-", "xxx04");
+	configPort(13, (char *)"-", "xxx05");
 
 	// Disable last 4 ADC
 	configPort(14, (char *)"ais", "ai000");
 	configPort(15, (char *)"ais", "ai001");
-	configPort(16, (char *)"xS",  "ai002");
-	configPort(17, (char *)"xS",  "ai003");
-	configPort(18, (char *)"xS",  "ai004");
-	configPort(19, (char *)"xS",  "ai005");
+	configPort(16, (char *)"x",  "ai002");
+	configPort(17, (char *)"x",  "ai003");
+	configPort(18, (char *)"x",  "ai004");
+	configPort(19, (char *)"x",  "ai005");
 	
 	// Virtuals ports
 	for (i=0; i<MAXLINKS; i++){
 		itoan(i, pname, 6);
 		pname[0] = 'v';
                 pname[1] = 't';
-		configPort(i + (DIGITALPORTS + ANALOGPORTS), (char*)"xS", pname);         
+		configPort(i + (DIGITALPORTS + ANALOGPORTS), (char*)"x", pname);         
 	}
 	
 
@@ -1247,6 +1251,7 @@ void refreshPortStatus()
 			
 			if (ports[i].value != val)
 				triggerPortChange(i, ports[i].value, val);
+                                ports[i].value=val;
 		} 
 		
 		else if (ISINPUT(i)) {
@@ -1298,6 +1303,8 @@ void refreshPortStatus()
 }
 
 /// Send the list of links created to the standard output
+// Formato de salida port1:port2:type
+// Ejemplo di002:do008:d
 void listLinks()
 {
 	byte i = 0;
@@ -1311,14 +1318,10 @@ void listLinks()
 		if ((links[i][0] != 0) && (links[i][1] != 0)) {
 			eeprom_get_str(pname1, links[i][0]*EMPORTSLOT, 6);
 			eeprom_get_str(pname2, links[i][1]*EMPORTSLOT, 6);
-			//writef(output, flstrn(strfmt_lnk,buffer,20), INFO, bname, pname1,
-			//       pname2, (char*)links[i][2]);
 			writef(output, "%s:%s:%c\n", pname1, pname2, (char*)links[i][2]);
 			a++;
 		}
-		// Formato de salida:
-		// 01234567890123456789012345 
-		// port1:port2:type
+		
 	}
 	if (a == 0) print_cmdok(output);
 //		writef(output, "W:no links\n");
@@ -1334,25 +1337,21 @@ void get_state(byte id, char *buffer){
        
         int i;
 	if (ISDIGITAL(id)) {  			
-			if (ports[id].value != LOW)
-				strlcpy(buffer, ON, 3);
-			else
-				strlcpy(buffer, OFF, 4);
-		}
+		if (ports[id].value != LOW) strcpy(buffer,"ON");
+		else strcpy(buffer,"OFF");
+                  
+	}
 	else if (ISANALOG(id)) {
                 i=ports[id].value;
         	if (i<0){
-        		strlcpy(buffer, "-", 2);
+        		strcpy(buffer, "-");
         		i= ~i ;
         	}
-        	else {
-                  strlcpy(buffer, "+", 2);		
-		  
-                }
+        	else strcpy(buffer, "+");
                 strlcat(buffer , itoan(i, &buffer[1], 5), 5);
-                strlcat(buffer , ".0000", 11);
+                strcat(buffer , ".0000");
 	}
-        else strlcpy(buffer, "", sizeof(buffer));
+        else strcpy(buffer,"");   
 }
 
 
@@ -1379,8 +1378,7 @@ void get_type(byte id, char *buffer ){
                 else buffer[1] = 'V';		
 	}
         buffer[2]=eeprom_get_byte(EMPORTSLOT * id + EMPOSVISIBILITY);
-        buffer[3]='_';          // Simulación respuesta ODControl.
-        buffer[4]='\n';        	
+        buffer[3]='_';          // Simulación respuesta ODControl.          	
 }
 
 /// Imprime la lista de puerto compactada.
@@ -1391,7 +1389,7 @@ void listCompact(){
 	//0123456789012345789012345678901234567890
 	byte i;
 	byte ini=0;
-	byte fin=24;
+	byte fin=23;
 	for (i=ini ; i<fin; i++){
 		eeprom_get_str(auxBuf, i*EMPORTSLOT, 6);
 		strlcpy(buffer, auxBuf, sizeof(buffer));
@@ -1401,7 +1399,7 @@ void listCompact(){
                 strlcat(buffer, ":", sizeof(buffer));
                 get_state(i, auxBuf);
                 strlcat(buffer, auxBuf, sizeof(buffer));
-                strlcat(buffer, "\r\n", sizeof(buffer));
+                strlcat(buffer, "\n", sizeof(buffer));
             	writef(output, buffer);	
 	}
 	
@@ -1413,7 +1411,7 @@ void listPorts()
 {
 	byte i;
         byte ini=0;
-	byte fin=24;       //TOTALPORTS   
+	byte fin=23;       //TOTALPORTS   
 	char buffer[30];
         char auxBuf[11];
 	
@@ -1427,13 +1425,8 @@ void listPorts()
                 strlcat(buffer, ":", sizeof(buffer));
                 get_state(i, auxBuf);
                 strlcat(buffer, auxBuf, sizeof(buffer));
-                strlcat(buffer, "\r\n", sizeof(buffer));               
-		
-		if (output == HTTP) {
-			//http_listPortsLine(pname, type, value);
-		} 
-		else
-                        writef(output, buffer); 
+                strlcat(buffer, "\n", sizeof(buffer));
+                writef(output, buffer); 
 	}
 
 }
@@ -1871,9 +1864,6 @@ boolean processInstruction(const char *cmd)
 		else
 			setPortValue(id1, atoi(arg2));
 
-#ifdef ENABLE_NETWORKING
-		sendODControlUpdate(i);
-#endif
 		incident=0;
 		break;
 
@@ -1952,11 +1942,13 @@ void updateTimeVars(){
 		}
 		// Enviamos broadcast UDP cada 10 segundos
 		if (seconds % 60 == 0){
-  			for (i=0;i<TOTALPORTS;i++){
+                        void sendODControlHead();
+  			for (i=0;i<TOTALPORTS;i++){                                
     				if(ISDIGITAL(i)||ISANALOG(i)){
 					sendODControlUpdate(i);
-				}
+				}                                
 			}
+                        Udp.endPacket();
 		}
 #endif
 	}
@@ -2116,7 +2108,7 @@ void writef(byte out, const char *fmt, ...)
 
 //{{{ flstrn() copies a string from flash to a buffer
 // The function returns a pointer to the buffer or NULL if failed
-char *flstrn(prog_char *flash_str, char *buffer, byte len){
+char *flstrn(const char *flash_str, char *buffer, byte len){
 	byte i=0;
 	char c;
 	buffer[0]=0;
@@ -2191,10 +2183,8 @@ void eeprom_reset()
 
 #ifdef ENABLE_NETWORKING
 /// This function reads a command from the HTTP port
-int readFromHTTPPort(char *instruction)
-{
-//  char pos=0;
-//  char linecount=0;
+int readFromHTTPPort(char *instruction){
+
 	char b=0;
 	int i = 0;
 	char barfound = 0;
@@ -2348,37 +2338,36 @@ bool readFromTelnetPort(char *instruction)
 	}
 }
 
-void sendODControlAnnouncement(){
-	char msg[50];
-	IPAddress broadcast(255, 255, 255, 255);
-
-	strlcpy(msg, "ODC01:" UID, sizeof(msg));
-	strlcat(msg,":", sizeof(msg));
-	strlcat(msg,bname,sizeof(msg));
-	strlcat(msg," isalive", sizeof(msg));
-	Serial.println(msg);
+void sendODControlHead(){
+       
+	IPAddress broadcast(255, 255, 255, 255);       
         Udp.beginPacket(broadcast, UDP_PORT);
-	Udp.write(msg);
+	Udp.print("ODC01:"UID);      
+}
+
+void sendODControlAnnouncement(){
+        sendODControlHead();
+        Udp.print(":");
+        Udp.print(bname);        
+        Udp.print(" isalive");	
         Udp.endPacket();
 }
 
 void sendODControlUpdate(int i){
-	char msg[50];
+	char msg[40];
 	char auxBuf[11];
-	IPAddress broadcast(255, 255, 255, 255);
-
-	strlcpy(msg, "ODC01:" UID , sizeof(msg));
-	strlcat(msg, " ", sizeof(msg));
+	
+	strlcpy(msg, " ", sizeof(msg));
         get_type(i, auxBuf);
         strncat(msg,auxBuf ,2);
         strlcat(msg, ":", sizeof(msg));
+        eeprom_get_str(auxBuf, i*EMPORTSLOT, 6);
+        strlcat(msg, auxBuf, sizeof(msg));
+        Udp.print(msg);       
+        strlcpy(msg, ":", sizeof(msg));
         get_state(i, auxBuf);
         strlcat(msg, auxBuf, sizeof(msg));
-     
-	Serial.println(msg);
-        Udp.beginPacket(broadcast, UDP_PORT);
-	Udp.write(msg);
-        Udp.endPacket();
+	Udp.print(msg);
 }
 #endif
 
