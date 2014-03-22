@@ -45,7 +45,7 @@
 byte mac[] = { 0xBE, 0xAB, 0xEA, 0xEF, 0xFE, 0xED };
 
 //! IP address: Write here your own IP
-byte defip[] = {169, 254, 0, 10 };
+byte defip[] = {169, 254, 0, 10  };
 
 //! IP address (global)
 byte ip[4];
@@ -677,7 +677,11 @@ void triggerPortChange(byte port, byte ov, byte nv)
 	else if (ov < nv) dif=DIFU;
 	
 	if (dif == 0) return;             // Value didn't change return.
-        
+#ifdef ENABLE_NETWORKING
+        sendODControlHead();
+        sendODControlUpdate(port);
+        Udp.endPacket();         
+#endif        
         
 	eeprom_get_str(pname, port*EMPORTSLOT, 6);
 	if (ISINPUT(port) && ISANALOG(port)) {
@@ -878,11 +882,7 @@ boolean setPortValue(char id, int value)
         if (ISVIRTUAL(id)){
                 ports[id].value = value;                
         }
-#ifdef ENABLE_NETWORKING
-        sendODControlHead();
-        sendODControlUpdate(id);
-        Udp.endPacket();         
-#endif
+
 	
 	return true;
 }
@@ -1937,18 +1937,19 @@ void updateTimeVars(){
 
 #ifdef ENABLE_NETWORKING
 		// Enviamos broadcast UDP cada 10 segundos
-		if (seconds % 10 == 0){
-			sendODControlAnnouncement();
-		}
-		// Enviamos broadcast UDP cada 10 segundos
+		
+		
 		if (seconds % 60 == 0){
-                        void sendODControlHead();
-  			for (i=0;i<TOTALPORTS;i++){                                
+                        sendODControlHead();
+  			for (i=0;i<TOTALPORTS;i++){                              
     				if(ISDIGITAL(i)||ISANALOG(i)){
 					sendODControlUpdate(i);
 				}                                
-			}
+			}                       
                         Udp.endPacket();
+		}
+                else if (seconds % 10 == 0){
+			sendODControlAnnouncement();
 		}
 #endif
 	}
@@ -2342,19 +2343,19 @@ void sendODControlHead(){
        
 	IPAddress broadcast(255, 255, 255, 255);       
         Udp.beginPacket(broadcast, UDP_PORT);
-	Udp.print("ODC01:"UID);      
+	Udp.write("ODC01:"UID);        
 }
 
 void sendODControlAnnouncement(){
         sendODControlHead();
         Udp.print(":");
         Udp.print(bname);        
-        Udp.print(" isalive");	
+        Udp.print(" isalive");
         Udp.endPacket();
 }
 
 void sendODControlUpdate(int i){
-	char msg[40];
+	char msg[40]="";
 	char auxBuf[11];
 	
 	strlcpy(msg, " ", sizeof(msg));
@@ -2363,11 +2364,12 @@ void sendODControlUpdate(int i){
         strlcat(msg, ":", sizeof(msg));
         eeprom_get_str(auxBuf, i*EMPORTSLOT, 6);
         strlcat(msg, auxBuf, sizeof(msg));
-        Udp.print(msg);       
+        Udp.print(msg);      
         strlcpy(msg, ":", sizeof(msg));
         get_state(i, auxBuf);
         strlcat(msg, auxBuf, sizeof(msg));
 	Udp.print(msg);
+
 }
 #endif
 
