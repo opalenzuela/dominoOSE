@@ -3,9 +3,9 @@
  \brief Domino (OpenDomo for Arduino)
  ****************************************************************************
  *  This file is part of the OpenDomo project.
- *  Copyright(C) 2013 OpenDomo Services S.L.
+ *  Copyright(C) 2014 OpenDomo Services S.L.
  *
- *  Oriol Palenzuela Roses <opalenzuela (at) opendomo (dot) com>
+ *  Oriol Palenzuela <opalenzuela (at) opendomo (dot) com>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,16 +25,15 @@
  automated products using a normalized configuration syntax.
 
  A detailed explanation of all the supported commands and architecture can be
- found in the following webpages:
+ found in the following webpage:
 
  -# http://es.opendomo.org/domino (Main page)
- -# http://es.opendomo.org/domino_reference (Reference manual)
 
  This document is only intended to be useful for the firmware's programmers.
 */
 
 /// Current library version
-#define VERSION "1.1.4"
+#define VERSION "1.1.5"
 
 //define para habilitar la funcionalidad de red
 #define ENABLE_NETWORKING
@@ -1128,8 +1127,8 @@ void loadDefaultConfig()
 	configPort(9, (char *)"dos", "do009");
         
 	// Disable Ethernet and SD 
-        configPort(0,  (char *)"-", "xxxrx");  // SD Select
-        configPort(1,  (char *)"-", "xxxtx");  // SD Select
+	configPort(0,  (char *)"-", "xxxrx");  // SD Select
+	configPort(1,  (char *)"-", "xxxtx");  // SD Select
 	configPort(4,  (char *)"-", "xxx01");  // SD Select
 	configPort(10, (char *)"-", "xxx02");  
 	configPort(11, (char *)"-", "xxx03");
@@ -1201,8 +1200,8 @@ boolean readFromSerialPort(char *ins)
 				i++;
 				ins[i] = 0;
 			} 
-                        else 
-                          print_error(output,2);			
+			else 
+				print_error(output,2);			
 		}
 	}
 	return false;
@@ -1251,7 +1250,7 @@ void refreshPortStatus()
 			
 			if (ports[i].value != val)
 				triggerPortChange(i, ports[i].value, val);
-                                ports[i].value=val;
+			ports[i].value=val;
 		} 
 		
 		else if (ISINPUT(i)) {
@@ -1393,14 +1392,14 @@ void listCompact(){
 	for (i=ini ; i<fin; i++){
 		eeprom_get_str(auxBuf, i*EMPORTSLOT, 6);
 		strlcpy(buffer, auxBuf, sizeof(buffer));
-                strlcat(buffer, ":", sizeof(buffer));
-                get_type(i, auxBuf);
-                strncat(buffer, auxBuf ,4);
-                strlcat(buffer, ":", sizeof(buffer));
-                get_state(i, auxBuf);
-                strlcat(buffer, auxBuf, sizeof(buffer));
-                strlcat(buffer, "\n", sizeof(buffer));
-            	writef(output, buffer);	
+		strlcat(buffer, ":", sizeof(buffer));
+		get_type(i, auxBuf);
+		strncat(buffer, auxBuf ,4);
+		strlcat(buffer, ":", sizeof(buffer));
+		get_state(i, auxBuf);
+		strlcat(buffer, auxBuf, sizeof(buffer));
+		strlcat(buffer, "\n", sizeof(buffer));
+		writef(output, buffer);	
 	}
 	
 	
@@ -1410,23 +1409,22 @@ void listCompact(){
 void listPorts()
 {
 	byte i;
-        byte ini=0;
+	byte ini=0;
 	byte fin=23;       //TOTALPORTS   
 	char buffer[30];
         char auxBuf[11];
 	
 	for(i=ini;i<fin;i++) {
-		
-                get_type(i, auxBuf);
-                strlcpy(buffer, auxBuf , 3);
-                strlcat(buffer, ":", sizeof(buffer));
-                eeprom_get_str(auxBuf, i*EMPORTSLOT, 6);
-                strlcat(buffer, auxBuf, sizeof(buffer));
-                strlcat(buffer, ":", sizeof(buffer));
-                get_state(i, auxBuf);
-                strlcat(buffer, auxBuf, sizeof(buffer));
-                strlcat(buffer, "\n", sizeof(buffer));
-                writef(output, buffer); 
+		get_type(i, auxBuf);
+		strlcpy(buffer, auxBuf , 3);
+		strlcat(buffer, ":", sizeof(buffer));
+		eeprom_get_str(auxBuf, i*EMPORTSLOT, 6);
+		strlcat(buffer, auxBuf, sizeof(buffer));
+		strlcat(buffer, ":", sizeof(buffer));
+		get_state(i, auxBuf);
+		strlcat(buffer, auxBuf, sizeof(buffer));
+		strlcat(buffer, "\n", sizeof(buffer));
+		writef(output, buffer); 
 	}
 
 }
@@ -1439,10 +1437,9 @@ void listPorts()
 
 */
 void eeprom_set_Link(char lnk){
-		eeprom_set_byte(EMLINKSOFFSET + lnk * EMLINKSLOT + 0, links[lnk][0]);
-		eeprom_set_byte(EMLINKSOFFSET + lnk * EMLINKSLOT + 1, links[lnk][1]);
-		eeprom_set_byte(EMLINKSOFFSET + lnk * EMLINKSLOT + 2, links[lnk][2]);      
-      
+	eeprom_set_byte(EMLINKSOFFSET + lnk * EMLINKSLOT + 0, links[lnk][0]);
+	eeprom_set_byte(EMLINKSOFFSET + lnk * EMLINKSLOT + 1, links[lnk][1]);
+	eeprom_set_byte(EMLINKSOFFSET + lnk * EMLINKSLOT + 2, links[lnk][2]);      
 }
 
 /** Links two ports
@@ -1871,13 +1868,13 @@ boolean processInstruction(const char *cmd)
 		id1 = getPortId(arg1);            // Indice del puerto origen
 		id2 = getPortId(arg2);            // Indice del puerto destino
                
-                if (validTypeLink(cmd[16])==true){
-                  funcionout=addLink(id1, id2, cmd[16]);                 
-                  if (funcionout>=0)incident=0;
-                  else if (funcionout==-2)incident=302;
-                  else if (funcionout==-3)incident=301;
-                }
-                else incident=306;	
+		if (validTypeLink(cmd[16])==true){
+			funcionout=addLink(id1, id2, cmd[16]);                 
+			if (funcionout>=0)incident=0;
+			else if (funcionout==-2)incident=302;
+			else if (funcionout==-3)incident=301;
+		}
+		else incident=306;	
 		break;
 
 	case CMD_UNL:		/// - unl: unlink two portsValid
@@ -1913,15 +1910,12 @@ boolean processInstruction(const char *cmd)
 		break;
 	}
         
-        if(incident>0){
-          print_error(output,incident);
-          return false;
-        }
-        if(incident==0)print_cmdok(output);
-        return true; 
-                 
-        
-          
+	if(incident>0){
+		print_error(output,incident);
+		return false;
+	}
+	if(incident==0)print_cmdok(output);
+	return true; 
 }
 
 // {{{
@@ -1985,12 +1979,12 @@ void setup()
 
 	if(eeprom_get_byte(EMBOARDOFFSET)==255)
 	{
-   		Serial.println("D:loaddef");
-                eeprom_reset();
-                loadDefaultConfig();
-                resetPorts();
-                saveBoardName("devkt");
-                eeprom_set_byte(EMNETCFOFFSET,1); // eth up
+		Serial.println("D:loaddef");
+		eeprom_reset();
+		loadDefaultConfig();
+		resetPorts();
+		saveBoardName("devkt");
+		eeprom_set_byte(EMNETCFOFFSET,1); // eth up
 	}
 
 
@@ -2031,9 +2025,9 @@ void setup()
 */
 void loop()
 {
-        char instruction[20];
+	char instruction[20];
         
-        // Aparte de comprobar los comandos recibidos, miramos si
+	// Aparte de comprobar los comandos recibidos, miramos si
 	// hay algun cambio de estado en los puertos.
 	refreshPortStatus();
 
@@ -2130,12 +2124,12 @@ char *flstrn(const char *flash_str, char *buffer, byte len){
 
 unsigned char eeprom_get_byte(int byte_index)
 {
-  return eeprom_read_byte((unsigned char*) byte_index);
+	return eeprom_read_byte((unsigned char*) byte_index);
 }
 
 void eeprom_set_byte(int byte_index, byte value)
 {
-  eeprom_write_byte((unsigned char*)byte_index,value);
+	eeprom_write_byte((unsigned char*)byte_index,value);
 }
 
 // {{{ eeprom_get_ushort(): read an unsigned short from eeprom
@@ -2185,18 +2179,16 @@ void eeprom_reset()
 #ifdef ENABLE_NETWORKING
 /// This function reads a command from the HTTP port
 int readFromHTTPPort(char *instruction){
-
 	char b=0;
 	int i = 0;
 	char barfound = 0;
 	char value[6];
 	char pname[6] = "";
 	char buffer[50];
-  //boolean uristarted = false;
-  // listen for incoming clients
-  EthernetClient client = Webserver.available();
-  if (client) {
-	// HTTP TESTING
+	//boolean uristarted = false;
+	// listen for incoming clients
+	EthernetClient client = Webserver.available();
+	if (client) {
     	while (client.available()) {
  		b = client.read();
 
@@ -2325,7 +2317,7 @@ int readFromHTTPPort(char *instruction){
 				}
 				itoan(ports[i].value, value, sizeof(value));
 				client.print(value);
-				client.println(":+00000|00020:a5:00005");
+				client.println(":+00000|00100");
 			}
 			delay(10);
 		}
@@ -2333,17 +2325,16 @@ int readFromHTTPPort(char *instruction){
 	} else {
 		output = SERIALPORT; // Do not show any output
 		if (processInstruction(instruction)==true){
-     			client.println("HTTP/1.1 307 Temporary redirect"); // HTTP Code: correct (redirect)
+			client.println("HTTP/1.1 307 Temporary redirect"); // HTTP Code: correct (redirect)
 			client.println("Location: /lst");
    		} else {
-     			client.println("HTTP/1.1 500 Internal server error"); // HTTP Code: Internal server error
+			client.println("HTTP/1.1 500 Internal server error"); // HTTP Code: Internal server error
 			client.println("Location: /lst");
-     		}
+		}
   	}
 
 	delay(10);
 	client.stop();
- 	// END HTTP TESTING
  	return true;
   }
 
