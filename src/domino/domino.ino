@@ -2227,19 +2227,19 @@ int readFromHTTPPort(char *instruction){
 		client.println("HTTP/1.1 200 OK");
 		client.println("Content-Type: text/html");
 		client.println("Connnection: close");
- 		client.println(); // Space between headers and body
- 		client.print(flstrn(str_http_header_1,buffer,50));
- 		delay(1);
-  		client.print(flstrn(str_http_header_2,buffer,50));
-  		delay(1);
-    		client.print(flstrn(str_http_header_3,buffer,50));
-    		delay(1);
-      		client.print(flstrn(str_http_header_4,buffer,50));
-      		delay(1);
-      		client.print(flstrn(str_http_header_5,buffer,50));
-      		delay(1);
-            	client.print(flstrn(str_http_header_6,buffer,50));
-      		delay(1);
+		client.println(); // Space between headers and body
+		client.print(flstrn(str_http_header_1,buffer,50));
+		delay(1);
+		client.print(flstrn(str_http_header_2,buffer,50));
+		delay(1);
+		client.print(flstrn(str_http_header_3,buffer,50));
+		delay(1);
+		client.print(flstrn(str_http_header_4,buffer,50));
+		delay(1);
+		client.print(flstrn(str_http_header_5,buffer,50));
+		delay(1);
+		client.print(flstrn(str_http_header_6,buffer,50));
+		delay(1);
 
 		for(i=0;i<TOTALPORTS;i++) {
 			value[0] = 0;
@@ -2249,13 +2249,13 @@ int readFromHTTPPort(char *instruction){
 			if (ISDIGITAL(i)) {
   				if (ISINPUT(i)){
   					client.print("<li class=DI><b>");
-                			client.print(pname);
+                	client.print(pname);
 
-    					if (ports[i].value != LOW) {
+    				if (ports[i].value != LOW) {
 						client.print("</b><a class=ON>");
 					}else{
 						client.print("</b><a class=OFF>");
-              				}
+              		}
 
     				}else{
                       			client.print("<li class=DO><b>");
@@ -2288,6 +2288,7 @@ int readFromHTTPPort(char *instruction){
 		client.print(VERSION);
 		client.println(flstrn(str_http_footer_2,buffer,50));
 		//client.println("</ul><div id=ftr></div></body></html>");
+		
 	} else if ((instruction[0]=='l' && instruction[1]=='s' && instruction[2]=='c') ) {
 		client.println("HTTP/1.1 200 OK");
 		client.println("Content-Type: text/plain");
@@ -2297,8 +2298,8 @@ int readFromHTTPPort(char *instruction){
 			value[0] = 0;
 			eeprom_get_str(pname, i*EMPORTSLOT, 6);
 			pname[sizeof(pname) - 1] = 0;
-			client.print(pname);
 			if (ISDIGITAL(i)) {
+				client.print(pname);
   				if (ISINPUT(i)){
   					client.print(":DIM_:");
    					if (ports[i].value != LOW) {
@@ -2316,6 +2317,7 @@ int readFromHTTPPort(char *instruction){
               		}
       			}
 			} else if (ISANALOG(i)) {
+				client.print(pname);
 				if (ISINPUT(i)){
 					client.print(":AIM_:");
 				} else {
