@@ -2288,6 +2288,46 @@ int readFromHTTPPort(char *instruction){
 		client.print(VERSION);
 		client.println(flstrn(str_http_footer_2,buffer,50));
 		//client.println("</ul><div id=ftr></div></body></html>");
+	} else if ((instruction[0]=='l' && instruction[1]=='s' && instruction[2]=='c') ) {
+		client.println("HTTP/1.1 200 OK");
+		client.println("Content-Type: text/plain");
+		client.println("Connnection: close");
+ 		client.println(); // Space between headers and body
+		for(i=0;i<TOTALPORTS;i++) {
+			value[0] = 0;
+			eeprom_get_str(pname, i*EMPORTSLOT, 6);
+			pname[sizeof(pname) - 1] = 0;
+			client.print(pname);
+			if (ISDIGITAL(i)) {
+  				if (ISINPUT(i)){
+  					client.print(":DIM_:");
+   					if (ports[i].value != LOW) {
+						client.println("ON");
+					}else{
+						client.println("OFF");
+              		}
+
+    			} else {
+					client.print(":DOM_:");
+   					if (ports[i].value != LOW) {
+						client.println("ON");
+					}else{
+						client.println("OFF");
+              		}
+      			}
+			} else if (ISANALOG(i)) {
+				if (ISINPUT(i)){
+					client.print(":AIM_:");
+				} else {
+					client.print(":AOM_:");
+				}
+				itoan(ports[i].value, value, sizeof(value));
+				client.print(value);
+				client.println(":+00000|00020:a5:00005");
+			}
+			delay(10);
+		}
+		client.println("DONE");
 	} else {
 		output = SERIALPORT; // Do not show any output
 		if (processInstruction(instruction)==true){
